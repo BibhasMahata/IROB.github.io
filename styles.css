@@ -1,0 +1,846 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   IROB — styles.css  ·  Premium Augmentation Layer
+   Handles: glassmorphism, glowing borders, custom scrollbars, 3D tilt/hover,
+            cinematic loader, phase-node pulse, backdrop-filter overlays,
+            typography refinement, and all effects Tailwind cannot do.
+═══════════════════════════════════════════════════════════════════════════ */
+
+/* ─────────────────────────────────────────────────────────────────────────
+   0. EXTENDED DESIGN TOKENS
+   ───────────────────────────────────────────────────────────────────────── */
+:root {
+  /* Glow radii */
+  --glow-sm:  0 0 12px var(--accent-30), 0 0 24px var(--accent-12);
+  --glow-md:  0 0 22px var(--accent-60), 0 0 50px var(--accent-30), 0 0 90px var(--accent-12);
+  --glow-lg:  0 0 40px var(--accent-60), 0 0 90px var(--accent-30), 0 0 160px var(--accent-12);
+
+  /* Glass layers */
+  --glass-surface:  rgba(255, 255, 255, 0.028);
+  --glass-edge:     rgba(255, 255, 255, 0.07);
+  --glass-high:     rgba(255, 255, 255, 0.055);
+  --glass-blur:     saturate(180%) blur(28px);
+
+  /* 3D tilt */
+  --tilt-transition: transform 0.22s cubic-bezier(0.23, 1, 0.32, 1),
+                     box-shadow 0.22s cubic-bezier(0.23, 1, 0.32, 1);
+
+  /* Loader */
+  --loader-bg: #020001;
+  --loader-duration: 3.4s;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────────────
+   1. CUSTOM SCROLLBARS  (Webkit + Firefox)
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* Main page */
+html {
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent) var(--bg);
+}
+
+::-webkit-scrollbar         { width: 4px; height: 4px; }
+::-webkit-scrollbar-track   { background: var(--bg); }
+::-webkit-scrollbar-thumb   {
+  background: linear-gradient(to bottom, var(--accent), rgba(192,0,26,.35));
+  border-radius: 0;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--accent); box-shadow: var(--glow-sm); }
+::-webkit-scrollbar-corner  { background: var(--bg); }
+
+/* Modal inner scrollbar — thinner, accent flush */
+.modal-box {
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent-60) transparent;
+}
+.modal-box::-webkit-scrollbar         { width: 2px; }
+.modal-box::-webkit-scrollbar-track   { background: transparent; }
+.modal-box::-webkit-scrollbar-thumb   { background: var(--accent-60); border-radius: 1px; }
+
+/* Tech grid scroll area */
+.tech-grid-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent-30) transparent;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────────────
+   2. BACKGROUND CANVAS — fixed, behind everything
+   ───────────────────────────────────────────────────────────────────────── */
+#bg-canvas {
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  z-index: -1 !important;  /* Hard-pin below all content */
+  pointer-events: none;
+  opacity: 0.62;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────────────
+   3. CINEMATIC LOADER SCREEN
+   ───────────────────────────────────────────────────────────────────────── */
+#loader {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  background: var(--loader-bg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2.4rem;
+  pointer-events: all;
+  transition: opacity 0.6s ease 0.1s, visibility 0.6s ease 0.1s;
+}
+
+#loader.hide {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* Loader — glitch wordmark */
+.loader-title {
+  font-family: 'Bebas Neue', cursive;
+  font-size: clamp(5rem, 18vw, 13rem);
+  letter-spacing: 0.22em;
+  color: #fff;
+  position: relative;
+  user-select: none;
+  animation: loader-appear 0.4s ease both;
+}
+
+.loader-title::before,
+.loader-title::after {
+  content: attr(data-text);
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  pointer-events: none;
+}
+
+/* Red channel — shift left */
+.loader-title::before {
+  color: var(--accent);
+  clip-path: polygon(0 15%, 100% 15%, 100% 45%, 0 45%);
+  animation: loader-glitch-r var(--loader-duration) steps(1) infinite;
+}
+
+/* Blue channel — shift right */
+.loader-title::after {
+  color: #0af;
+  mix-blend-mode: screen;
+  clip-path: polygon(0 55%, 100% 55%, 100% 82%, 0 82%);
+  animation: loader-glitch-b var(--loader-duration) steps(1) infinite;
+  opacity: 0.7;
+}
+
+@keyframes loader-appear {
+  from { opacity: 0; transform: scaleX(1.08) skewX(-3deg); filter: blur(18px); }
+  to   { opacity: 1; transform: none; filter: none; }
+}
+
+@keyframes loader-glitch-r {
+  0%,  72%, 100% { transform: translate(0, 0);    opacity: 0; }
+  73%            { transform: translate(-8px, 3px); opacity: 1; }
+  74%            { transform: translate(6px, -2px); opacity: 1; }
+  75%            { transform: translate(-3px, 1px); opacity: 1; }
+  76%            { transform: translate(0, 0);       opacity: 0; }
+  80%            { transform: translate(-12px, 0);  opacity: 1; }
+  81%            { transform: translate(0, 0);       opacity: 0; }
+  85%            { transform: translate(5px, -3px); opacity: 1; }
+  86%            { transform: translate(0, 0);       opacity: 0; }
+}
+
+@keyframes loader-glitch-b {
+  0%,  72%, 100% { transform: translate(0, 0);    opacity: 0; }
+  73%            { transform: translate(9px, -2px); opacity: 1; }
+  74%            { transform: translate(-5px, 3px); opacity: 1; }
+  75%            { transform: translate(2px, 0);   opacity: 0.8; }
+  76%            { transform: translate(0, 0);       opacity: 0; }
+  82%            { transform: translate(10px, 0);  opacity: 1; }
+  83%            { transform: translate(0, 0);       opacity: 0; }
+}
+
+/* Loader — subtitle */
+.loader-sub {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.52em;
+  text-transform: uppercase;
+  color: var(--accent);
+  animation: loader-sub-in 0.5s ease 0.35s both;
+}
+
+@keyframes loader-sub-in {
+  from { opacity: 0; letter-spacing: 0.9em; }
+  to   { opacity: 1; letter-spacing: 0.52em; }
+}
+
+/* Loader — scan-line bar */
+.loader-bar-wrap {
+  width: clamp(240px, 38vw, 440px);
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  animation: loader-sub-in 0.5s ease 0.6s both;
+}
+
+.loader-bar-track {
+  width: 100%;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.06);
+  position: relative;
+  overflow: visible;
+}
+
+.loader-bar-fill {
+  position: absolute;
+  top: 0; left: 0;
+  height: 100%;
+  background: linear-gradient(to right, transparent, var(--accent), #ff4060);
+  width: 0%;
+  animation: loader-fill 2.2s cubic-bezier(0.4, 0, 0.2, 1) 0.7s forwards;
+  box-shadow: 0 0 16px var(--accent);
+}
+
+.loader-bar-fill::after {
+  content: '';
+  position: absolute;
+  right: 0; top: -2px;
+  width: 3px; height: 5px;
+  background: #fff;
+  box-shadow: 0 0 8px #fff, 0 0 20px var(--accent);
+}
+
+@keyframes loader-fill {
+  0%   { width: 0%; }
+  40%  { width: 62%; }
+  70%  { width: 78%; }
+  88%  { width: 91%; }
+  100% { width: 100%; }
+}
+
+.loader-status {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.55rem;
+  color: var(--muted);
+  letter-spacing: 0.22em;
+  display: flex;
+  justify-content: space-between;
+}
+
+.loader-status .pct {
+  color: var(--accent);
+  animation: loader-pct 2.2s linear 0.7s forwards;
+}
+
+@keyframes loader-pct {
+  0%   { --n: 0; }
+  100% { --n: 100; }
+}
+
+/* Loader — scanline vignette */
+#loader::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0px,
+    transparent 3px,
+    rgba(0, 0, 0, 0.08) 3px,
+    rgba(0, 0, 0, 0.08) 4px
+  );
+  pointer-events: none;
+  animation: scanline-drift 8s linear infinite;
+}
+
+@keyframes scanline-drift {
+  from { background-position: 0 0; }
+  to   { background-position: 0 80px; }
+}
+
+/* Loader — accent corner decorations */
+#loader::after {
+  content: '';
+  position: absolute;
+  inset: 28px;
+  border: 1px solid rgba(192, 0, 26, 0.12);
+  pointer-events: none;
+  animation: loader-border-pulse 2s ease-in-out infinite;
+}
+
+@keyframes loader-border-pulse {
+  0%, 100% { opacity: 0.4; }
+  50%       { opacity: 1; box-shadow: inset 0 0 60px rgba(192,0,26,0.05); }
+}
+
+
+/* ─────────────────────────────────────────────────────────────────────────
+   4. GLOWING BORDER UTILITY CLASSES
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* Static glow borders */
+.glow-border-sm { box-shadow: var(--glow-sm); border-color: var(--accent-60) !important; }
+.glow-border-md { box-shadow: var(--glow-md); border-color: var(--accent) !important; }
+.glow-border-lg { box-shadow: var(--glow-lg); border-color: var(--accent) !important; }
+
+/* Animated — breathing glow */
+.glow-pulse {
+  animation: glow-breathe 3s ease-in-out infinite;
+}
+@keyframes glow-breathe {
+  0%, 100% { box-shadow: 0 0 14px var(--accent-30), 0 0 30px var(--accent-12); }
+  50%       { box-shadow: 0 0 28px var(--accent-60), 0 0 60px var(--accent-30), 0 0 100px var(--accent-12); }
+}
+
+/* Sweeping edge glow (top border travels right) */
+.glow-sweep {
+  position: relative;
+  overflow: hidden;
+}
+.glow-sweep::after {
+  content: '';
+  position: absolute;
+  top: 0; left: -120%;
+  width: 80%; height: 1px;
+  background: linear-gradient(to right, transparent, var(--accent), transparent);
+  animation: sweep-line 3.6s ease-in-out infinite;
+}
+@keyframes sweep-line {
+  from { left: -80%; }
+  to   { left: 120%; }
+}
+
+
+/* ─────────────────────────────────────────────────────────────────────────
+   5. GLASSMORPHISM SURFACES
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* Base glass panel — apply class .glass-panel */
+.glass-panel {
+  background: var(--glass-surface);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-edge);
+  position: relative;
+}
+
+/* Inner highlight rim */
+.glass-panel::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    135deg,
+    rgba(255,255,255,0.06) 0%,
+    transparent 50%,
+    rgba(255,255,255,0.01) 100%
+  );
+  pointer-events: none;
+}
+
+/* ── MODAL glass upgrade ── */
+#ui-modal {
+  background: rgba(4, 0, 1, 0.82) !important;
+  backdrop-filter: saturate(160%) blur(36px) !important;
+  -webkit-backdrop-filter: saturate(160%) blur(36px) !important;
+}
+
+.modal-box {
+  background: linear-gradient(
+    160deg,
+    rgba(18, 2, 5, 0.96) 0%,
+    rgba(10, 0, 2, 0.99) 100%
+  ) !important;
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  border: 1px solid transparent !important;
+  background-clip: padding-box;
+
+  /* Multi-layer glow border via box-shadow */
+  box-shadow:
+    0 0 0 1px rgba(192, 0, 26, 0.35),
+    0 0 30px rgba(192, 0, 26, 0.15),
+    0 0 80px rgba(192, 0, 26, 0.06),
+    0 32px 80px rgba(0, 0, 0, 0.7),
+    inset 0 1px 0 rgba(255,255,255,0.06),
+    inset 0 -1px 0 rgba(192, 0, 26, 0.08);
+
+  animation: modIn 0.32s cubic-bezier(0.16, 1, 0.3, 1) both !important;
+}
+
+@keyframes modIn {
+  from {
+    opacity: 0;
+    transform: translateY(32px) scale(0.96);
+    filter: blur(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: none;
+  }
+}
+
+/* Dashboard scan-line texture inside modal */
+.modal-box::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0px,
+    transparent 5px,
+    rgba(0, 0, 0, 0.04) 5px,
+    rgba(0, 0, 0, 0.04) 6px
+  );
+  pointer-events: none;
+  z-index: 0;
+  border-radius: inherit;
+}
+
+/* Push modal content above the scanline overlay */
+.modal-head,
+.modal-body { position: relative; z-index: 1; }
+
+/* Modal header — frosted glass strip */
+.modal-head {
+  background: linear-gradient(
+    90deg,
+    rgba(192, 0, 26, 0.10) 0%,
+    rgba(192, 0, 26, 0.04) 60%,
+    transparent 100%
+  ) !important;
+  border-bottom: 1px solid rgba(192, 0, 26, 0.22) !important;
+  backdrop-filter: blur(8px);
+}
+
+/* Accent left-rail on header */
+.modal-head::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: linear-gradient(to bottom, var(--accent), transparent);
+  box-shadow: 2px 0 18px var(--accent-60);
+}
+
+/* Modal KPI cells — mini glass cards */
+.m-kpi {
+  background: rgba(255,255,255,0.022) !important;
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255,255,255,0.045);
+  transition: background 0.2s, box-shadow 0.2s;
+}
+.m-kpi:hover {
+  background: rgba(192, 0, 26, 0.07) !important;
+  box-shadow: inset 0 0 24px rgba(192, 0, 26, 0.08);
+}
+
+/* Feature pills */
+.m-feat {
+  background: rgba(255,255,255,0.018) !important;
+  border: 1px solid rgba(255,255,255,0.055) !important;
+  transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
+}
+.m-feat:hover {
+  background: rgba(192, 0, 26, 0.08) !important;
+  border-color: rgba(192, 0, 26, 0.3) !important;
+  box-shadow: 0 0 12px rgba(192, 0, 26, 0.12);
+}
+
+/* Modal close button — glass pill */
+.modal-close {
+  backdrop-filter: blur(8px);
+  background: rgba(255,255,255,0.03) !important;
+  transition: color 0.2s, border-color 0.2s, background 0.2s, box-shadow 0.2s !important;
+}
+.modal-close:hover {
+  background: rgba(192, 0, 26, 0.15) !important;
+  box-shadow: 0 0 16px var(--accent-30);
+}
+
+
+/* ─────────────────────────────────────────────────────────────────────────
+   6. PHASE NODE — GLOWING PULSE ANIMATIONS
+   ───────────────────────────────────────────────────────────────────────── */
+
+.phase-node {
+  position: relative;
+  transition: var(--tilt-transition);
+  animation: node-idle-glow 4s ease-in-out infinite;
+}
+
+/* Idle breathing glow */
+@keyframes node-idle-glow {
+  0%, 100% {
+    box-shadow:
+      0 0 14px rgba(192, 0, 26, 0.28),
+      0 0 32px rgba(192, 0, 26, 0.10),
+      inset 0 0 8px rgba(192, 0, 26, 0.06);
+  }
+  50% {
+    box-shadow:
+      0 0 24px rgba(192, 0, 26, 0.55),
+      0 0 60px rgba(192, 0, 26, 0.22),
+      0 0 100px rgba(192, 0, 26, 0.08),
+      inset 0 0 12px rgba(192, 0, 26, 0.10);
+  }
+}
+
+/* Ripple ring — 1st wave */
+.phase-node::before {
+  content: '';
+  position: absolute;
+  inset: -8px;
+  border-radius: 50%;
+  border: 1px solid var(--accent-60);
+  animation: node-ring-1 3s ease-out infinite;
+  pointer-events: none;
+}
+
+/* Ripple ring — 2nd wave, offset */
+.phase-node::after {
+  content: '';
+  position: absolute;
+  inset: -8px;
+  border-radius: 50%;
+  border: 1px solid var(--accent-30);
+  animation: node-ring-1 3s ease-out 1.5s infinite;
+  pointer-events: none;
+}
+
+@keyframes node-ring-1 {
+  0%   { inset: -4px;  opacity: 0.9; border-color: var(--accent-60); }
+  100% { inset: -22px; opacity: 0;   border-color: var(--accent-12); }
+}
+
+/* On hover — supercharged pulse */
+.phase-node:hover {
+  box-shadow:
+    0 0 0 1px var(--accent),
+    0 0 30px var(--accent-60),
+    0 0 70px var(--accent-30),
+    0 0 120px var(--accent-12) !important;
+  animation: none;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────────────
+   7. PHASE CARD — 3D TILT / PERSPECTIVE HOVER
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* Parent establishes 3D context */
+.timeline-wrap {
+  perspective: 1800px;
+}
+
+.phase-card {
+  transform-origin: center center;
+  transform-style: preserve-3d;
+  will-change: transform, box-shadow;
+  transition: var(--tilt-transition);
+
+  /* subtle glass upgrade */
+  background: linear-gradient(
+    135deg,
+    rgba(255,255,255,0.03) 0%,
+    rgba(255,255,255,0.01) 100%
+  ) !important;
+  backdrop-filter: blur(10px) saturate(140%);
+  -webkit-backdrop-filter: blur(10px) saturate(140%);
+}
+
+/* JS tilt is applied inline; these handle CSS-only hover fallback */
+.phase-card:hover {
+  transform: translateY(-4px) rotateX(1.5deg) rotateY(-1.5deg) !important;
+  box-shadow:
+    0 0 0 1px rgba(192, 0, 26, 0.28),
+    0 12px 40px rgba(0, 0, 0, 0.5),
+    0 0 40px rgba(192, 0, 26, 0.08);
+}
+
+/* Inner shimmer on hover */
+.phase-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    circle at var(--mx, 50%) var(--my, 30%),
+    rgba(255,255,255,0.045) 0%,
+    transparent 68%
+  );
+  opacity: 0;
+  transition: opacity 0.3s;
+  pointer-events: none;
+}
+.phase-card:hover::after { opacity: 1; }
+
+
+/* ─────────────────────────────────────────────────────────────────────────
+   8. NAV — enhanced glass
+   ───────────────────────────────────────────────────────────────────────── */
+nav {
+  backdrop-filter: saturate(200%) blur(28px) !important;
+  -webkit-backdrop-filter: saturate(200%) blur(28px) !important;
+  background: rgba(4, 0, 1, 0.68) !important;
+  border-bottom: 1px solid rgba(255,255,255,0.055) !important;
+  box-shadow:
+    0 1px 0 rgba(192, 0, 26, 0.12),
+    0 4px 32px rgba(0, 0, 0, 0.35);
+}
+
+
+/* ─────────────────────────────────────────────────────────────────────────
+   9. STAT CELLS — 3D lift + glow on hover
+   ───────────────────────────────────────────────────────────────────────── */
+.stat-cell {
+  transition: background 0.3s, transform 0.28s cubic-bezier(0.23,1,0.32,1),
+              box-shadow 0.28s cubic-bezier(0.23,1,0.32,1) !important;
+  backdrop-filter: blur(8px);
+}
+.stat-cell:hover {
+  transform: translateY(-4px) scale(1.01);
+  box-shadow:
+    0 8px 32px rgba(0,0,0,0.4),
+    0 0 28px rgba(192,0,26,0.14),
+    inset 0 0 20px rgba(192,0,26,0.06);
+}
+
+
+/* ─────────────────────────────────────────────────────────────────────────
+   10. REVENUE CELLS — glass upgrade + glow sweep
+   ───────────────────────────────────────────────────────────────────────── */
+.rev-cell {
+  backdrop-filter: blur(6px);
+  transition: background 0.3s, transform 0.28s cubic-bezier(0.23,1,0.32,1),
+              box-shadow 0.28s cubic-bezier(0.23,1,0.32,1) !important;
+}
+.rev-cell:hover {
+  transform: translateY(-3px);
+  box-shadow:
+    0 0 28px rgba(192,0,26,0.10),
+    inset 0 0 24px rgba(192,0,26,0.04);
+}
+
+
+/* ─────────────────────────────────────────────────────────────────────────
+   11. TECH GRID CELLS — 3D + glow
+   ───────────────────────────────────────────────────────────────────────── */
+.tech-cell {
+  backdrop-filter: blur(8px);
+  transition: background 0.25s, transform 0.25s cubic-bezier(0.23,1,0.32,1),
+              box-shadow 0.25s, border-color 0.25s;
+}
+.tech-cell:hover {
+  background: rgba(192, 0, 26, 0.07) !important;
+  border-color: rgba(192, 0, 26, 0.3) !important;
+  transform: translateY(-4px) scale(1.035);
+  box-shadow:
+    0 0 22px rgba(192,0,26,0.16),
+    0 8px 28px rgba(0,0,0,0.4);
+}
+
+
+/* ─────────────────────────────────────────────────────────────────────────
+   12. COMPARISON TABLE — row glow on hover
+   ───────────────────────────────────────────────────────────────────────── */
+.cmp-table tr:hover td {
+  background: rgba(192, 0, 26, 0.030) !important;
+}
+.cmp-table td.col-irob {
+  position: relative;
+}
+.cmp-table td.col-irob::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, rgba(192,0,26,0.06), transparent);
+  pointer-events: none;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────────────
+   13. PULSE DOT — enhanced ring animation
+   ───────────────────────────────────────────────────────────────────────── */
+.pulse-dot {
+  box-shadow: 0 0 8px var(--accent);
+}
+.pulse-dot::after {
+  animation: pulsate 1.8s ease-out infinite !important;
+}
+.pulse-dot::before {
+  content: '';
+  position: absolute;
+  inset: -8px;
+  border-radius: 50%;
+  border: 1px solid var(--accent-30);
+  animation: pulsate 1.8s ease-out 0.9s infinite;
+}
+
+@keyframes pulsate {
+  0%   { transform: scale(1);   opacity: 0.8; }
+  100% { transform: scale(3.2); opacity: 0;   }
+}
+
+
+/* ─────────────────────────────────────────────────────────────────────────
+   14. TYPOGRAPHY — PREMIUM HIERARCHY
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* Display / hero level — tight tracking, optical weight */
+.hero-title,
+.sec-title,
+.foot-logo {
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Sub-headings & eyebrows — crisp mono */
+.eyebrow,
+.ph-code,
+.mlabel,
+.nav-pill,
+.stat-lbl,
+.t-cat {
+  font-feature-settings: 'tnum' 1, 'ss01' 1;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Body paragraphs — readability */
+.ph-desc,
+.mpara,
+.rev-desc {
+  font-feature-settings: 'kern' 1, 'liga' 1;
+  -webkit-font-smoothing: antialiased;
+  text-wrap: pretty;
+}
+
+/* Phase name — micro tracking refinement */
+.ph-name {
+  letter-spacing: 0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Modal title */
+#m-title {
+  font-family: 'Bebas Neue', cursive;
+  font-size: clamp(1.6rem, 4vw, 2.6rem);
+  letter-spacing: 0.06em;
+  line-height: 1;
+}
+
+/* Modal code label */
+#m-code {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.6rem;
+  letter-spacing: 0.34em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+/* Selection color */
+::selection {
+  background: var(--accent);
+  color: #fff;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────────────
+   15. SECTION REVEAL — gradient horizon line
+   ───────────────────────────────────────────────────────────────────────── */
+.divider {
+  position: relative;
+  overflow: visible;
+}
+.divider::after {
+  content: '';
+  position: absolute;
+  left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  width: 200px;
+  height: 20px;
+  background: radial-gradient(ellipse at center, var(--accent-12) 0%, transparent 80%);
+  pointer-events: none;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────────────
+   16. FOOTER — glass strip + ambient glow
+   ───────────────────────────────────────────────────────────────────────── */
+footer {
+  backdrop-filter: blur(12px);
+  background: rgba(4, 0, 1, 0.62);
+  position: relative;
+}
+footer::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 15%; right: 15%;
+  height: 1px;
+  background: linear-gradient(to right, transparent, var(--accent-30), transparent);
+  box-shadow: 0 0 20px var(--accent-30);
+}
+
+
+/* ─────────────────────────────────────────────────────────────────────────
+   17. FOCUS / ACCESSIBILITY
+   ───────────────────────────────────────────────────────────────────────── */
+:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 3px var(--accent-12);
+}
+
+
+/* ─────────────────────────────────────────────────────────────────────────
+   18. REDUCED MOTION
+   ───────────────────────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration:   0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+
+/* ─────────────────────────────────────────────────────────────────────────
+   19. RESPONSIVE GLASS ADJUSTMENTS
+   ───────────────────────────────────────────────────────────────────────── */
+@media (max-width: 800px) {
+  .modal-box {
+    width: 96% !important;
+    max-height: 92vh !important;
+  }
+
+  .phase-card:hover {
+    transform: translateY(-2px) !important;
+  }
+
+  #loader::after {
+    inset: 14px;
+  }
+}
+
+
+/* ─────────────────────────────────────────────────────────────────────────
+   20. UTILITY: ACCENT GLOW TEXT
+   ───────────────────────────────────────────────────────────────────────── */
+.text-glow {
+  text-shadow:
+    0 0 18px rgba(192, 0, 26, 0.8),
+    0 0 40px rgba(192, 0, 26, 0.4);
+}
+
+.text-glow-subtle {
+  text-shadow: 0 0 28px rgba(192, 0, 26, 0.5);
+}

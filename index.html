@@ -1,0 +1,3056 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>IROB — Master Build Flowchart v1.0</title>
+
+  <!-- ─── Google Fonts ─── -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Syne:wght@400;500;600;700;800&family=JetBrains+Mono:wght@300;400;500;700&display=swap" rel="stylesheet" />
+
+  <!-- ─── Tailwind CSS ─── -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- ─── Three.js r128 ─── -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+  <!-- ─── GSAP + ScrollTrigger ─── -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+
+  <!-- ─── Lenis Smooth Scroll ─── -->
+  <script src="https://unpkg.com/@studio-freight/lenis@1.0.42/dist/lenis.min.js"></script>
+
+  <!-- ─── Tailwind Custom Config ─── -->
+  <script>
+    tailwind.config = {
+      theme: { extend: { colors: { accent: '#c0001a', 'bg-deep': '#060001' } } }
+    };
+  </script>
+
+
+  <style>
+    /* =========================================================
+       CSS CUSTOM PROPERTIES
+    ========================================================= */
+    :root {
+      --bg:              #060001;
+      --bg-2:            #0c0003;
+      --accent:          #c0001a;
+      --accent-60:       rgba(192, 0, 26, 0.60);
+      --accent-30:       rgba(192, 0, 26, 0.30);
+      --accent-12:       rgba(192, 0, 26, 0.12);
+      --accent-06:       rgba(192, 0, 26, 0.06);
+      --glass:           rgba(255,255,255,0.03);
+      --glass-hover:     rgba(255,255,255,0.055);
+      --border:          rgba(255,255,255,0.07);
+      --border-accent:   rgba(192, 0, 26, 0.30);
+      --text:            #ffffff;
+      --muted:           rgba(255,255,255,0.45);
+      --dim:             rgba(255,255,255,0.18);
+      --ff-display:      'Bebas Neue', cursive;
+      --ff-ui:           'Syne', sans-serif;
+      --ff-mono:         'JetBrains Mono', monospace;
+    }
+
+    /* =========================================================
+       RESET & BASE
+    ========================================================= */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: auto; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--ff-ui);
+      overflow-x: hidden;
+      cursor: none;
+    }
+
+    ::-webkit-scrollbar { width: 3px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--accent); }
+
+    /* =========================================================
+       CURSOR
+    ========================================================= */
+    #cursor {
+      position: fixed; width: 10px; height: 10px;
+      background: var(--accent); border-radius: 50%;
+      pointer-events: none; z-index: 9999;
+      transform: translate(-50%,-50%);
+      transition: width .18s, height .18s, opacity .18s;
+      mix-blend-mode: screen;
+    }
+    #cursor-ring {
+      position: fixed; width: 34px; height: 34px;
+      border: 1px solid var(--accent-60); border-radius: 50%;
+      pointer-events: none; z-index: 9998;
+      transform: translate(-50%,-50%);
+      transition: left .12s ease-out, top .12s ease-out,
+                  width .2s, height .2s, border-color .2s;
+    }
+    body:has(a:hover) #cursor-ring,
+    body:has(button:hover) #cursor-ring,
+    body:has(.hover-target:hover) #cursor-ring {
+      width: 50px; height: 50px; border-color: var(--accent);
+    }
+
+    /* =========================================================
+       CANVAS
+    ========================================================= */
+    #bg-canvas {
+      position: fixed; inset: 0;
+      width: 100%; height: 100%;
+      z-index: 0; opacity: .65;
+      pointer-events: none;
+    }
+
+    /* =========================================================
+       NOISE GRAIN
+    ========================================================= */
+    .noise {
+      position: fixed; inset: 0; z-index: 2;
+      pointer-events: none; opacity: .025;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)'/%3E%3C/svg%3E");
+      background-size: 220px;
+    }
+
+    /* =========================================================
+       PAGE WRAPPER
+    ========================================================= */
+    .wrap { position: relative; z-index: 1; }
+
+    /* =========================================================
+       NAVIGATION
+    ========================================================= */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 200;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: .9rem 3rem;
+      background: rgba(6,0,1,.72);
+      backdrop-filter: blur(22px);
+      border-bottom: 1px solid var(--border);
+    }
+    .nav-logo {
+      font-family: var(--ff-display); font-size: 1.7rem;
+      letter-spacing: .14em; color: var(--text);
+    }
+    .nav-logo em { color: var(--accent); font-style: normal; }
+    .nav-pill {
+      font-family: var(--ff-mono); font-size: .58rem;
+      color: var(--accent); border: 1px solid var(--accent-60);
+      padding: .18rem .7rem; letter-spacing: .14em;
+      text-transform: uppercase; margin-left: .8rem;
+    }
+    .nav-links { display: flex; gap: 2.2rem; list-style: none; }
+    .nav-links a {
+      font-family: var(--ff-mono); font-size: .65rem;
+      color: var(--muted); text-decoration: none;
+      letter-spacing: .16em; text-transform: uppercase;
+      transition: color .2s;
+    }
+    .nav-links a:hover { color: var(--accent); }
+    .nav-live {
+      display: flex; align-items: center; gap: .7rem;
+      font-family: var(--ff-mono); font-size: .58rem;
+      color: var(--accent); letter-spacing: .2em;
+    }
+
+    /* =========================================================
+       PULSE DOT
+    ========================================================= */
+    .pulse-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--accent); position: relative;
+    }
+    .pulse-dot::after {
+      content: ''; position: absolute; inset: -4px;
+      border-radius: 50%; border: 1px solid var(--accent);
+      animation: pulsate 2s ease-out infinite;
+    }
+    @keyframes pulsate {
+      0%   { transform: scale(1); opacity: .8; }
+      100% { transform: scale(2.8); opacity: 0; }
+    }
+
+    /* =========================================================
+       HERO
+    ========================================================= */
+    #hero {
+      min-height: 100vh;
+      display: flex; flex-direction: column;
+      justify-content: center; align-items: center;
+      text-align: center;
+      padding: 9rem 2rem 6rem;
+      position: relative; overflow: hidden;
+    }
+    #hero::before {
+      content: '';
+      position: absolute; bottom: -10%; left: 50%;
+      transform: translateX(-50%);
+      width: 700px; height: 300px;
+      background: radial-gradient(ellipse at center, var(--accent-12) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .hero-badge {
+      font-family: var(--ff-mono); font-size: .65rem;
+      color: var(--accent); letter-spacing: .32em; text-transform: uppercase;
+      border: 1px solid var(--border-accent);
+      background: var(--accent-06); padding: .38rem 1.1rem;
+      display: inline-block; margin-bottom: 2.2rem;
+    }
+    .hero-title {
+      font-family: var(--ff-display);
+      font-size: clamp(6.5rem, 19vw, 20rem);
+      line-height: .88;
+      letter-spacing: -.01em;
+      position: relative; display: inline-block;
+    }
+    /* Glitch */
+    .glitch { position: relative; }
+    .glitch::before, .glitch::after {
+      content: attr(data-text);
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    }
+    .glitch::before {
+      color: var(--accent);
+      clip-path: polygon(0 0, 100% 0, 100% 32%, 0 32%);
+      animation: glitch-a 4s infinite;
+    }
+    .glitch::after {
+      color: #ff1a3a;
+      clip-path: polygon(0 68%, 100% 68%, 100% 100%, 0 100%);
+      animation: glitch-b 4s infinite;
+    }
+    @keyframes glitch-a {
+      0%,88%,100% { transform: translate(0); opacity: 0; }
+      90% { transform: translate(-5px, 2px); opacity: .9; }
+      92% { transform: translate(4px,-2px); opacity: .9; }
+      94% { transform: translate(-2px,0); opacity: .8; }
+      96% { opacity: 0; }
+    }
+    @keyframes glitch-b {
+      0%,89%,100% { transform: translate(0); opacity: 0; }
+      91% { transform: translate(5px,1px); opacity: .7; }
+      93% { transform: translate(-4px,-1px); opacity: .7; }
+      95% { transform: translate(2px,0); opacity: .6; }
+      97% { opacity: 0; }
+    }
+    .hero-sub {
+      font-family: var(--ff-mono); font-size: clamp(.72rem,1.8vw,.9rem);
+      color: var(--muted); letter-spacing: .4em; text-transform: uppercase;
+      margin-top: 1.2rem; margin-bottom: 4.5rem;
+    }
+    .hero-sub em { color: var(--accent); font-style: normal; }
+
+    /* Stats Grid */
+    .stats-grid {
+      display: grid; grid-template-columns: repeat(4,1fr);
+      border: 1.5px solid var(--border-accent);
+      width: 100%; max-width: 860px;
+    }
+    .stat-cell {
+      padding: 2.4rem 1.4rem; text-align: center;
+      background: var(--accent-06);
+      position: relative; overflow: hidden;
+      transition: background .3s;
+    }
+    .stat-cell + .stat-cell { border-left: 1px solid var(--border-accent); }
+    .stat-cell::after {
+      content: ''; position: absolute;
+      bottom: 0; left: 0; right: 0; height: 2px;
+      background: var(--accent); transform: scaleX(0);
+      transition: transform .4s ease;
+    }
+    .stat-cell:hover::after { transform: scaleX(1); }
+    .stat-cell:hover { background: var(--accent-12); }
+    .stat-val {
+      font-family: var(--ff-display); font-size: 3.4rem;
+      color: var(--text); line-height: 1; display: block;
+    }
+    .stat-lbl {
+      font-family: var(--ff-mono); font-size: .6rem;
+      color: var(--accent); letter-spacing: .26em;
+      text-transform: uppercase; margin-top: .5rem; display: block;
+    }
+
+    /* Scroll cue */
+    .scroll-cue {
+      position: absolute; bottom: 2.8rem; left: 50%;
+      transform: translateX(-50%);
+      display: flex; flex-direction: column; align-items: center; gap: .5rem;
+      font-family: var(--ff-mono); font-size: .56rem;
+      color: var(--dim); letter-spacing: .3em;
+    }
+    .scroll-line {
+      width: 1px; height: 56px;
+      background: linear-gradient(to bottom, var(--accent), transparent);
+      animation: cue 2.2s ease-in-out infinite;
+    }
+    @keyframes cue {
+      0%,100% { opacity: .3; height: 56px; }
+      50%      { opacity: 1;  height: 72px; }
+    }
+
+    /* =========================================================
+       SECTION PRIMITIVES
+    ========================================================= */
+    section { position: relative; z-index: 1; }
+    .section-wrap { max-width: 1240px; margin: 0 auto; padding: 0 2rem; }
+
+    .eyebrow {
+      font-family: var(--ff-mono); font-size: .62rem;
+      color: var(--accent); letter-spacing: .42em; text-transform: uppercase;
+      margin-bottom: .8rem;
+    }
+    .sec-title {
+      font-family: var(--ff-display);
+      font-size: clamp(2.8rem,6.5vw,5.5rem);
+      letter-spacing: .04em; line-height: 1;
+    }
+    .sec-title em { color: var(--accent); font-style: normal; }
+
+    .divider {
+      width: 54px; height: 2px; background: var(--accent);
+      margin: 1.1rem auto;
+      position: relative;
+    }
+    .divider::before, .divider::after {
+      content: ''; position: absolute; top: 50%;
+      transform: translateY(-50%);
+      width: 5px; height: 5px; border-radius: 50%;
+      background: var(--accent);
+    }
+    .divider::before { left: -9px; }
+    .divider::after  { right: -9px; }
+
+    /* =========================================================
+       PHASES / TIMELINE
+    ========================================================= */
+    #phases { padding: 9rem 0; }
+
+    .timeline-wrap { position: relative; max-width: 1200px; margin: 0 auto; padding: 0 2rem; }
+
+    .spine {
+      position: absolute; left: 50%; top: 0; bottom: 0; width: 1px;
+      background: linear-gradient(to bottom, transparent 0%, var(--accent-60) 8%, var(--accent-60) 92%, transparent 100%);
+      transform: translateX(-50%);
+    }
+
+    .phase-row {
+      display: grid;
+      grid-template-columns: 1fr 60px 1fr;
+      align-items: center;
+      gap: 2.4rem;
+      margin-bottom: 3.2rem;
+      opacity: 0;
+      will-change: transform, opacity;
+    }
+
+    /* Phase node (centre) */
+    .phase-node {
+      grid-column: 2;
+      width: 54px; height: 54px; border-radius: 50%;
+      background: var(--bg-2); border: 2px solid var(--accent);
+      display: flex; align-items: center; justify-content: center;
+      font-family: var(--ff-mono); font-size: .66rem;
+      color: var(--accent); font-weight: 700;
+      box-shadow: 0 0 18px var(--accent-30), 0 0 40px var(--accent-12);
+      cursor: pointer; flex-shrink: 0; z-index: 2;
+      transition: box-shadow .3s, transform .3s;
+    }
+    .phase-node:hover {
+      box-shadow: 0 0 30px var(--accent-60), 0 0 60px var(--accent-30);
+      transform: scale(1.12);
+    }
+
+    /* Card */
+    .phase-card {
+      background: var(--glass); border: 1px solid var(--border);
+      padding: 2rem 2rem 1.6rem;
+      cursor: pointer; position: relative; overflow: hidden;
+      transition: border-color .3s, background .3s, transform .28s;
+    }
+    .phase-card::before {
+      content: ''; position: absolute; inset: 0;
+      background: linear-gradient(135deg, var(--accent-12) 0%, transparent 55%);
+      opacity: 0; transition: opacity .3s;
+    }
+    .phase-card:hover::before { opacity: 1; }
+    .phase-card:hover {
+      border-color: var(--border-accent);
+      transform: translateY(-3px);
+    }
+
+    .ph-bg-num {
+      position: absolute; top: .8rem; right: 1.2rem;
+      font-family: var(--ff-display); font-size: 5rem;
+      color: var(--accent); opacity: .08; line-height: 1;
+      pointer-events: none; user-select: none;
+    }
+
+    .ph-code  { font-family: var(--ff-mono); font-size: .58rem; color: var(--accent); letter-spacing: .28em; }
+    .ph-name  { font-family: var(--ff-ui); font-weight: 800; font-size: 1.22rem; margin: .28rem 0 .14rem; }
+    .ph-rep   { font-family: var(--ff-mono); font-size: .58rem; color: var(--muted); }
+    .ph-rep   span { color: var(--accent); }
+    .ph-desc  { font-size: .83rem; color: var(--muted); line-height: 1.65; margin: .9rem 0 1.2rem; }
+
+    .ph-tags  { display: flex; flex-wrap: wrap; gap: .4rem; margin-bottom: 1.2rem; }
+    .ph-tag   {
+      font-family: var(--ff-mono); font-size: .56rem;
+      color: var(--dim); border: 1px solid var(--border);
+      padding: .22rem .6rem; letter-spacing: .05em;
+      transition: border-color .2s, color .2s;
+    }
+    .phase-card:hover .ph-tag { border-color: var(--border-accent); color: var(--muted); }
+
+    .ph-footer { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .4rem; }
+    .ph-time   { font-family: var(--ff-mono); font-size: .58rem; color: var(--dim); }
+    .ph-status {
+      font-family: var(--ff-mono); font-size: .52rem;
+      letter-spacing: .22em; padding: .18rem .65rem;
+    }
+    .s-dev  { color: var(--accent); border: 1px solid var(--accent-60); background: var(--accent-06); }
+    .s-plan { color: var(--dim);    border: 1px solid var(--border); }
+
+    /* =========================================================
+       TECH STACK
+    ========================================================= */
+    #tech-stack { padding: 9rem 3rem; }
+
+    .tech-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+      gap: 1px; background: var(--border);
+      max-width: 1200px; margin: 0 auto;
+      border: 1px solid var(--border);
+    }
+    .tech-cell {
+      background: var(--bg); padding: 1.8rem 1rem;
+      text-align: center; cursor: default;
+      transition: background .3s, border-color .3s;
+      position: relative; overflow: hidden;
+      opacity: 0;
+    }
+    .tech-cell::after {
+      content: ''; position: absolute; bottom: 0;
+      left: 50%; transform: translateX(-50%) scaleX(0);
+      width: 28px; height: 2px;
+      background: var(--accent); transition: transform .3s;
+    }
+    .tech-cell:hover { background: var(--accent-06); }
+    .tech-cell:hover::after { transform: translateX(-50%) scaleX(1); }
+    .t-icon { font-size: 1.8rem; margin-bottom: .7rem; display: block; }
+    .t-name { font-family: var(--ff-ui); font-weight: 700; font-size: .82rem; }
+    .t-cat  { font-family: var(--ff-mono); font-size: .52rem; color: var(--accent); letter-spacing: .22em; text-transform: uppercase; margin-top: .3rem; display: block; }
+
+    /* =========================================================
+       COMPETITOR COMPARISON
+    ========================================================= */
+    #comparison { padding: 9rem 3rem; max-width: 1300px; margin: 0 auto; }
+
+    .cmp-scroll { overflow-x: auto; }
+    .cmp-table { width: 100%; border-collapse: collapse; font-family: var(--ff-ui); }
+    .cmp-table th {
+      padding: 1.4rem .9rem;
+      font-family: var(--ff-mono); font-size: .65rem;
+      letter-spacing: .2em; text-transform: uppercase;
+      color: var(--muted); border-bottom: 1px solid var(--border);
+      text-align: center; white-space: nowrap;
+    }
+    .cmp-table th.col-irob {
+      color: var(--accent); background: var(--accent-06);
+      border-bottom-color: var(--accent-60); font-size: .78rem;
+    }
+    .cmp-table td {
+      padding: .9rem; text-align: center;
+      border-bottom: 1px solid rgba(255,255,255,.035);
+      font-size: .84rem; color: var(--muted);
+      transition: background .2s;
+    }
+    .cmp-table tr:hover td { background: rgba(255,255,255,.018); }
+    .cmp-table td:first-child {
+      text-align: left; font-weight: 600; color: var(--text);
+      padding-left: 1.4rem;
+    }
+    .cmp-table td.col-irob { background: var(--accent-06); color: var(--text); font-weight: 600; }
+    .cic { color: #4ade80; }
+    .cix { color: var(--dim); }
+    .cip { font-family: var(--ff-mono); font-size: .6rem; color: #fbbf24; }
+
+    /* =========================================================
+       REVENUE
+    ========================================================= */
+    #revenue { padding: 9rem 3rem; }
+
+    .rev-grid {
+      display: grid; grid-template-columns: repeat(3,1fr);
+      gap: 1.5px; background: var(--border-accent);
+      max-width: 1200px; margin: 0 auto;
+    }
+    .rev-cell {
+      background: var(--bg); padding: 2.4rem 2rem;
+      position: relative; overflow: hidden;
+      transition: background .3s;
+    }
+    .rev-cell::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+      background: linear-gradient(to right, transparent, var(--accent), transparent);
+      opacity: 0; transition: opacity .3s;
+    }
+    .rev-cell:hover::before { opacity: 1; }
+    .rev-cell:hover { background: var(--accent-06); }
+    .rev-num {
+      position: absolute; top: .8rem; right: 1rem;
+      font-family: var(--ff-display); font-size: 5.5rem;
+      color: var(--accent); opacity: .07; line-height: 1;
+    }
+    .rev-title { font-family: var(--ff-ui); font-weight: 800; font-size: 1.05rem; margin-bottom: .5rem; }
+    .rev-desc  { font-size: .8rem; color: var(--muted); line-height: 1.7; }
+
+    /* =========================================================
+       FOOTER
+    ========================================================= */
+    footer {
+      padding: 3.5rem 3rem;
+      border-top: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 1.5rem;
+    }
+    .foot-logo { font-family: var(--ff-display); font-size: 2rem; letter-spacing: .1em; }
+    .foot-logo em { color: var(--accent); font-style: normal; }
+    .foot-sub { font-family: var(--ff-mono); font-size: .58rem; color: var(--muted); letter-spacing: .12em; margin-top: .4rem; }
+    .foot-meta { font-family: var(--ff-mono); font-size: .6rem; color: var(--dim); text-align: right; line-height: 2; }
+
+    /* =========================================================
+       MODAL
+    ========================================================= */
+    #ui-modal {
+      position: fixed; inset: 0; z-index: 500;
+      display: none; align-items: center; justify-content: center;
+      background: rgba(6,0,1,.88);
+      backdrop-filter: blur(14px);
+    }
+    #ui-modal.open { display: flex; }
+
+    .modal-box {
+      background: var(--bg-2);
+      border: 1px solid var(--border-accent);
+      width: 90%; max-width: 720px; max-height: 88vh;
+      overflow-y: auto; position: relative;
+      animation: modIn .28s ease both;
+    }
+    @keyframes modIn {
+      from { opacity: 0; transform: translateY(24px) scale(.97); }
+      to   { opacity: 1; transform: none; }
+    }
+    .modal-head {
+      padding: 1.8rem 2rem;
+      border-bottom: 1px solid var(--border);
+      background: var(--accent-06);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .modal-close {
+      width: 30px; height: 30px;
+      border: 1px solid var(--border); background: none;
+      color: var(--muted); cursor: pointer; font-size: .9rem;
+      display: flex; align-items: center; justify-content: center;
+      transition: color .2s, border-color .2s;
+    }
+    .modal-close:hover { color: var(--text); border-color: var(--accent); }
+    .modal-body { padding: 2rem; }
+
+    /* Modal inner helpers */
+    .mrow { margin-bottom: 1.6rem; }
+    .mlabel { font-family: var(--ff-mono); font-size: .58rem; color: var(--accent); letter-spacing: .28em; text-transform: uppercase; margin-bottom: .5rem; }
+    .mval { font-weight: 700; font-size: 1.08rem; }
+    .mpara { font-size: .85rem; color: var(--muted); line-height: 1.72; }
+    .m-features-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: .45rem; }
+    .m-feat {
+      background: var(--glass); border: 1px solid var(--border);
+      padding: .55rem .75rem;
+      font-family: var(--ff-mono); font-size: .72rem; color: var(--muted);
+    }
+    .m-feat::before { content: '▸ '; color: var(--accent); }
+    .m-kpi-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 1px; background: var(--border-accent); }
+    .m-kpi { background: var(--bg); padding: 1.1rem; text-align: center; }
+    .m-kpi-val { font-family: var(--ff-display); font-size: 1.7rem; color: var(--text); display: block; }
+    .m-kpi-lbl { font-family: var(--ff-mono); font-size: .52rem; color: var(--muted); letter-spacing: .15em; text-transform: uppercase; margin-top: .25rem; display: block; }
+
+    /* =========================================================
+       RESPONSIVE
+    ========================================================= */
+    @media (max-width: 800px) {
+      nav { padding: .9rem 1.2rem; }
+      .nav-links { display: none; }
+      .stats-grid { grid-template-columns: repeat(2,1fr); }
+      .spine { display: none; }
+      .phase-row {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto auto auto;
+        gap: .8rem;
+      }
+      .phase-node { grid-column: 1; grid-row: 1; margin: 0 auto; }
+      .phase-card { grid-column: 1; grid-row: 2; }
+      .phase-row .ph-empty { display: none; }
+      .rev-grid { grid-template-columns: 1fr; }
+      .m-features-grid { grid-template-columns: 1fr; }
+      .m-kpi-grid { grid-template-columns: repeat(2,1fr); }
+    }
+  </style>
+
+  <!-- ═══ styles.css — Augmentation Layer ═══ -->
+  <style>
+/* ═══════════════════════════════════════════════════════════════════════════
+   IROB — styles.css  ·  Premium Augmentation Layer
+   Handles: glassmorphism, glowing borders, custom scrollbars, 3D tilt/hover,
+            cinematic loader, phase-node pulse, backdrop-filter overlays,
+            typography refinement, and all effects Tailwind cannot do.
+═══════════════════════════════════════════════════════════════════════════ */
+
+/* ─────────────────────────────────────────────────────────────────────────
+   0. EXTENDED DESIGN TOKENS
+   ───────────────────────────────────────────────────────────────────────── */
+:root {
+  /* Glow radii */
+  --glow-sm:  0 0 12px var(--accent-30), 0 0 24px var(--accent-12);
+  --glow-md:  0 0 22px var(--accent-60), 0 0 50px var(--accent-30), 0 0 90px var(--accent-12);
+  --glow-lg:  0 0 40px var(--accent-60), 0 0 90px var(--accent-30), 0 0 160px var(--accent-12);
+
+  /* Glass layers */
+  --glass-surface:  rgba(255, 255, 255, 0.028);
+  --glass-edge:     rgba(255, 255, 255, 0.07);
+  --glass-high:     rgba(255, 255, 255, 0.055);
+  --glass-blur:     saturate(180%) blur(28px);
+
+  /* 3D tilt */
+  --tilt-transition: transform 0.22s cubic-bezier(0.23, 1, 0.32, 1),
+                     box-shadow 0.22s cubic-bezier(0.23, 1, 0.32, 1);
+
+  /* Loader */
+  --loader-bg: #020001;
+  --loader-duration: 3.4s;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────────────
+   1. CUSTOM SCROLLBARS  (Webkit + Firefox)
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* Main page */
+html {
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent) var(--bg);
+}
+
+::-webkit-scrollbar         { width: 4px; height: 4px; }
+::-webkit-scrollbar-track   { background: var(--bg); }
+::-webkit-scrollbar-thumb   {
+  background: linear-gradient(to bottom, var(--accent), rgba(192,0,26,.35));
+  border-radius: 0;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--accent); box-shadow: var(--glow-sm); }
+::-webkit-scrollbar-corner  { background: var(--bg); }
+
+/* Modal inner scrollbar — thinner, accent flush */
+.modal-box {
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent-60) transparent;
+}
+.modal-box::-webkit-scrollbar         { width: 2px; }
+.modal-box::-webkit-scrollbar-track   { background: transparent; }
+.modal-box::-webkit-scrollbar-thumb   { background: var(--accent-60); border-radius: 1px; }
+
+/* Tech grid scroll area */
+.tech-grid-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent-30) transparent;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────────────
+   2. BACKGROUND CANVAS — fixed, behind everything
+   ───────────────────────────────────────────────────────────────────────── */
+#bg-canvas {
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  z-index: -1 !important;  /* Hard-pin below all content */
+  pointer-events: none;
+  opacity: 0.62;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────────────
+   3. CINEMATIC LOADER SCREEN
+   ───────────────────────────────────────────────────────────────────────── */
+#loader {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  background: var(--loader-bg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2.4rem;
+  pointer-events: all;
+  transition: opacity 0.6s ease 0.1s, visibility 0.6s ease 0.1s;
+}
+
+#loader.hide {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* Loader — glitch wordmark */
+.loader-title {
+  font-family: 'Bebas Neue', cursive;
+  font-size: clamp(5rem, 18vw, 13rem);
+  letter-spacing: 0.22em;
+  color: #fff;
+  position: relative;
+  user-select: none;
+  animation: loader-appear 0.4s ease both;
+}
+
+.loader-title::before,
+.loader-title::after {
+  content: attr(data-text);
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  pointer-events: none;
+}
+
+/* Red channel — shift left */
+.loader-title::before {
+  color: var(--accent);
+  clip-path: polygon(0 15%, 100% 15%, 100% 45%, 0 45%);
+  animation: loader-glitch-r var(--loader-duration) steps(1) infinite;
+}
+
+/* Blue channel — shift right */
+.loader-title::after {
+  color: #0af;
+  mix-blend-mode: screen;
+  clip-path: polygon(0 55%, 100% 55%, 100% 82%, 0 82%);
+  animation: loader-glitch-b var(--loader-duration) steps(1) infinite;
+  opacity: 0.7;
+}
+
+@keyframes loader-appear {
+  from { opacity: 0; transform: scaleX(1.08) skewX(-3deg); filter: blur(18px); }
+  to   { opacity: 1; transform: none; filter: none; }
+}
+
+@keyframes loader-glitch-r {
+  0%,  72%, 100% { transform: translate(0, 0);    opacity: 0; }
+  73%            { transform: translate(-8px, 3px); opacity: 1; }
+  74%            { transform: translate(6px, -2px); opacity: 1; }
+  75%            { transform: translate(-3px, 1px); opacity: 1; }
+  76%            { transform: translate(0, 0);       opacity: 0; }
+  80%            { transform: translate(-12px, 0);  opacity: 1; }
+  81%            { transform: translate(0, 0);       opacity: 0; }
+  85%            { transform: translate(5px, -3px); opacity: 1; }
+  86%            { transform: translate(0, 0);       opacity: 0; }
+}
+
+@keyframes loader-glitch-b {
+  0%,  72%, 100% { transform: translate(0, 0);    opacity: 0; }
+  73%            { transform: translate(9px, -2px); opacity: 1; }
+  74%            { transform: translate(-5px, 3px); opacity: 1; }
+  75%            { transform: translate(2px, 0);   opacity: 0.8; }
+  76%            { transform: translate(0, 0);       opacity: 0; }
+  82%            { transform: translate(10px, 0);  opacity: 1; }
+  83%            { transform: translate(0, 0);       opacity: 0; }
+}
+
+/* Loader — subtitle */
+.loader-sub {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.52em;
+  text-transform: uppercase;
+  color: var(--accent);
+  animation: loader-sub-in 0.5s ease 0.35s both;
+}
+
+@keyframes loader-sub-in {
+  from { opacity: 0; letter-spacing: 0.9em; }
+  to   { opacity: 1; letter-spacing: 0.52em; }
+}
+
+/* Loader — scan-line bar */
+.loader-bar-wrap {
+  width: clamp(240px, 38vw, 440px);
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  animation: loader-sub-in 0.5s ease 0.6s both;
+}
+
+.loader-bar-track {
+  width: 100%;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.06);
+  position: relative;
+  overflow: visible;
+}
+
+.loader-bar-fill {
+  position: absolute;
+  top: 0; left: 0;
+  height: 100%;
+  background: linear-gradient(to right, transparent, var(--accent), #ff4060);
+  width: 0%;
+  animation: loader-fill 2.2s cubic-bezier(0.4, 0, 0.2, 1) 0.7s forwards;
+  box-shadow: 0 0 16px var(--accent);
+}
+
+.loader-bar-fill::after {
+  content: '';
+  position: absolute;
+  right: 0; top: -2px;
+  width: 3px; height: 5px;
+  background: #fff;
+  box-shadow: 0 0 8px #fff, 0 0 20px var(--accent);
+}
+
+@keyframes loader-fill {
+  0%   { width: 0%; }
+  40%  { width: 62%; }
+  70%  { width: 78%; }
+  88%  { width: 91%; }
+  100% { width: 100%; }
+}
+
+.loader-status {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.55rem;
+  color: var(--muted);
+  letter-spacing: 0.22em;
+  display: flex;
+  justify-content: space-between;
+}
+
+.loader-status .pct {
+  color: var(--accent);
+  animation: loader-pct 2.2s linear 0.7s forwards;
+}
+
+@keyframes loader-pct {
+  0%   { --n: 0; }
+  100% { --n: 100; }
+}
+
+/* Loader — scanline vignette */
+#loader::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0px,
+    transparent 3px,
+    rgba(0, 0, 0, 0.08) 3px,
+    rgba(0, 0, 0, 0.08) 4px
+  );
+  pointer-events: none;
+  animation: scanline-drift 8s linear infinite;
+}
+
+@keyframes scanline-drift {
+  from { background-position: 0 0; }
+  to   { background-position: 0 80px; }
+}
+
+/* Loader — accent corner decorations */
+#loader::after {
+  content: '';
+  position: absolute;
+  inset: 28px;
+  border: 1px solid rgba(192, 0, 26, 0.12);
+  pointer-events: none;
+  animation: loader-border-pulse 2s ease-in-out infinite;
+}
+
+@keyframes loader-border-pulse {
+  0%, 100% { opacity: 0.4; }
+  50%       { opacity: 1; box-shadow: inset 0 0 60px rgba(192,0,26,0.05); }
+}
+
+
+/* ─────────────────────────────────────────────────────────────────────────
+   4. GLOWING BORDER UTILITY CLASSES
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* Static glow borders */
+.glow-border-sm { box-shadow: var(--glow-sm); border-color: var(--accent-60) !important; }
+.glow-border-md { box-shadow: var(--glow-md); border-color: var(--accent) !important; }
+.glow-border-lg { box-shadow: var(--glow-lg); border-color: var(--accent) !important; }
+
+/* Animated — breathing glow */
+.glow-pulse {
+  animation: glow-breathe 3s ease-in-out infinite;
+}
+@keyframes glow-breathe {
+  0%, 100% { box-shadow: 0 0 14px var(--accent-30), 0 0 30px var(--accent-12); }
+  50%       { box-shadow: 0 0 28px var(--accent-60), 0 0 60px var(--accent-30), 0 0 100px var(--accent-12); }
+}
+
+/* Sweeping edge glow (top border travels right) */
+.glow-sweep {
+  position: relative;
+  overflow: hidden;
+}
+.glow-sweep::after {
+  content: '';
+  position: absolute;
+  top: 0; left: -120%;
+  width: 80%; height: 1px;
+  background: linear-gradient(to right, transparent, var(--accent), transparent);
+  animation: sweep-line 3.6s ease-in-out infinite;
+}
+@keyframes sweep-line {
+  from { left: -80%; }
+  to   { left: 120%; }
+}
+
+
+/* ─────────────────────────────────────────────────────────────────────────
+   5. GLASSMORPHISM SURFACES
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* Base glass panel — apply class .glass-panel */
+.glass-panel {
+  background: var(--glass-surface);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-edge);
+  position: relative;
+}
+
+/* Inner highlight rim */
+.glass-panel::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    135deg,
+    rgba(255,255,255,0.06) 0%,
+    transparent 50%,
+    rgba(255,255,255,0.01) 100%
+  );
+  pointer-events: none;
+}
+
+/* ── MODAL glass upgrade ── */
+#ui-modal {
+  background: rgba(4, 0, 1, 0.82) !important;
+  backdrop-filter: saturate(160%) blur(36px) !important;
+  -webkit-backdrop-filter: saturate(160%) blur(36px) !important;
+}
+
+.modal-box {
+  background: linear-gradient(
+    160deg,
+    rgba(18, 2, 5, 0.96) 0%,
+    rgba(10, 0, 2, 0.99) 100%
+  ) !important;
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  border: 1px solid transparent !important;
+  background-clip: padding-box;
+
+  /* Multi-layer glow border via box-shadow */
+  box-shadow:
+    0 0 0 1px rgba(192, 0, 26, 0.35),
+    0 0 30px rgba(192, 0, 26, 0.15),
+    0 0 80px rgba(192, 0, 26, 0.06),
+    0 32px 80px rgba(0, 0, 0, 0.7),
+    inset 0 1px 0 rgba(255,255,255,0.06),
+    inset 0 -1px 0 rgba(192, 0, 26, 0.08);
+
+  animation: modIn 0.32s cubic-bezier(0.16, 1, 0.3, 1) both !important;
+}
+
+@keyframes modIn {
+  from {
+    opacity: 0;
+    transform: translateY(32px) scale(0.96);
+    filter: blur(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: none;
+  }
+}
+
+/* Dashboard scan-line texture inside modal */
+.modal-box::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0px,
+    transparent 5px,
+    rgba(0, 0, 0, 0.04) 5px,
+    rgba(0, 0, 0, 0.04) 6px
+  );
+  pointer-events: none;
+  z-index: 0;
+  border-radius: inherit;
+}
+
+/* Push modal content above the scanline overlay */
+.modal-head,
+.modal-body { position: relative; z-index: 1; }
+
+/* Modal header — frosted glass strip */
+.modal-head {
+  background: linear-gradient(
+    90deg,
+    rgba(192, 0, 26, 0.10) 0%,
+    rgba(192, 0, 26, 0.04) 60%,
+    transparent 100%
+  ) !important;
+  border-bottom: 1px solid rgba(192, 0, 26, 0.22) !important;
+  backdrop-filter: blur(8px);
+}
+
+/* Accent left-rail on header */
+.modal-head::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: linear-gradient(to bottom, var(--accent), transparent);
+  box-shadow: 2px 0 18px var(--accent-60);
+}
+
+/* Modal KPI cells — mini glass cards */
+.m-kpi {
+  background: rgba(255,255,255,0.022) !important;
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255,255,255,0.045);
+  transition: background 0.2s, box-shadow 0.2s;
+}
+.m-kpi:hover {
+  background: rgba(192, 0, 26, 0.07) !important;
+  box-shadow: inset 0 0 24px rgba(192, 0, 26, 0.08);
+}
+
+/* Feature pills */
+.m-feat {
+  background: rgba(255,255,255,0.018) !important;
+  border: 1px solid rgba(255,255,255,0.055) !important;
+  transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
+}
+.m-feat:hover {
+  background: rgba(192, 0, 26, 0.08) !important;
+  border-color: rgba(192, 0, 26, 0.3) !important;
+  box-shadow: 0 0 12px rgba(192, 0, 26, 0.12);
+}
+
+/* Modal close button — glass pill */
+.modal-close {
+  backdrop-filter: blur(8px);
+  background: rgba(255,255,255,0.03) !important;
+  transition: color 0.2s, border-color 0.2s, background 0.2s, box-shadow 0.2s !important;
+}
+.modal-close:hover {
+  background: rgba(192, 0, 26, 0.15) !important;
+  box-shadow: 0 0 16px var(--accent-30);
+}
+
+
+/* ─────────────────────────────────────────────────────────────────────────
+   6. PHASE NODE — GLOWING PULSE ANIMATIONS
+   ───────────────────────────────────────────────────────────────────────── */
+
+.phase-node {
+  position: relative;
+  transition: var(--tilt-transition);
+  animation: node-idle-glow 4s ease-in-out infinite;
+}
+
+/* Idle breathing glow */
+@keyframes node-idle-glow {
+  0%, 100% {
+    box-shadow:
+      0 0 14px rgba(192, 0, 26, 0.28),
+      0 0 32px rgba(192, 0, 26, 0.10),
+      inset 0 0 8px rgba(192, 0, 26, 0.06);
+  }
+  50% {
+    box-shadow:
+      0 0 24px rgba(192, 0, 26, 0.55),
+      0 0 60px rgba(192, 0, 26, 0.22),
+      0 0 100px rgba(192, 0, 26, 0.08),
+      inset 0 0 12px rgba(192, 0, 26, 0.10);
+  }
+}
+
+/* Ripple ring — 1st wave */
+.phase-node::before {
+  content: '';
+  position: absolute;
+  inset: -8px;
+  border-radius: 50%;
+  border: 1px solid var(--accent-60);
+  animation: node-ring-1 3s ease-out infinite;
+  pointer-events: none;
+}
+
+/* Ripple ring — 2nd wave, offset */
+.phase-node::after {
+  content: '';
+  position: absolute;
+  inset: -8px;
+  border-radius: 50%;
+  border: 1px solid var(--accent-30);
+  animation: node-ring-1 3s ease-out 1.5s infinite;
+  pointer-events: none;
+}
+
+@keyframes node-ring-1 {
+  0%   { inset: -4px;  opacity: 0.9; border-color: var(--accent-60); }
+  100% { inset: -22px; opacity: 0;   border-color: var(--accent-12); }
+}
+
+/* On hover — supercharged pulse */
+.phase-node:hover {
+  box-shadow:
+    0 0 0 1px var(--accent),
+    0 0 30px var(--accent-60),
+    0 0 70px var(--accent-30),
+    0 0 120px var(--accent-12) !important;
+  animation: none;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────────────
+   7. PHASE CARD — 3D TILT / PERSPECTIVE HOVER
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* Parent establishes 3D context */
+.timeline-wrap {
+  perspective: 1800px;
+}
+
+.phase-card {
+  transform-origin: center center;
+  transform-style: preserve-3d;
+  will-change: transform, box-shadow;
+  transition: var(--tilt-transition);
+
+  /* subtle glass upgrade */
+  background: linear-gradient(
+    135deg,
+    rgba(255,255,255,0.03) 0%,
+    rgba(255,255,255,0.01) 100%
+  ) !important;
+  backdrop-filter: blur(10px) saturate(140%);
+  -webkit-backdrop-filter: blur(10px) saturate(140%);
+}
+
+/* JS tilt is applied inline; these handle CSS-only hover fallback */
+.phase-card:hover {
+  transform: translateY(-4px) rotateX(1.5deg) rotateY(-1.5deg) !important;
+  box-shadow:
+    0 0 0 1px rgba(192, 0, 26, 0.28),
+    0 12px 40px rgba(0, 0, 0, 0.5),
+    0 0 40px rgba(192, 0, 26, 0.08);
+}
+
+/* Inner shimmer on hover */
+.phase-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    circle at var(--mx, 50%) var(--my, 30%),
+    rgba(255,255,255,0.045) 0%,
+    transparent 68%
+  );
+  opacity: 0;
+  transition: opacity 0.3s;
+  pointer-events: none;
+}
+.phase-card:hover::after { opacity: 1; }
+
+
+/* ─────────────────────────────────────────────────────────────────────────
+   8. NAV — enhanced glass
+   ───────────────────────────────────────────────────────────────────────── */
+nav {
+  backdrop-filter: saturate(200%) blur(28px) !important;
+  -webkit-backdrop-filter: saturate(200%) blur(28px) !important;
+  background: rgba(4, 0, 1, 0.68) !important;
+  border-bottom: 1px solid rgba(255,255,255,0.055) !important;
+  box-shadow:
+    0 1px 0 rgba(192, 0, 26, 0.12),
+    0 4px 32px rgba(0, 0, 0, 0.35);
+}
+
+
+/* ─────────────────────────────────────────────────────────────────────────
+   9. STAT CELLS — 3D lift + glow on hover
+   ───────────────────────────────────────────────────────────────────────── */
+.stat-cell {
+  transition: background 0.3s, transform 0.28s cubic-bezier(0.23,1,0.32,1),
+              box-shadow 0.28s cubic-bezier(0.23,1,0.32,1) !important;
+  backdrop-filter: blur(8px);
+}
+.stat-cell:hover {
+  transform: translateY(-4px) scale(1.01);
+  box-shadow:
+    0 8px 32px rgba(0,0,0,0.4),
+    0 0 28px rgba(192,0,26,0.14),
+    inset 0 0 20px rgba(192,0,26,0.06);
+}
+
+
+/* ─────────────────────────────────────────────────────────────────────────
+   10. REVENUE CELLS — glass upgrade + glow sweep
+   ───────────────────────────────────────────────────────────────────────── */
+.rev-cell {
+  backdrop-filter: blur(6px);
+  transition: background 0.3s, transform 0.28s cubic-bezier(0.23,1,0.32,1),
+              box-shadow 0.28s cubic-bezier(0.23,1,0.32,1) !important;
+}
+.rev-cell:hover {
+  transform: translateY(-3px);
+  box-shadow:
+    0 0 28px rgba(192,0,26,0.10),
+    inset 0 0 24px rgba(192,0,26,0.04);
+}
+
+
+/* ─────────────────────────────────────────────────────────────────────────
+   11. TECH GRID CELLS — 3D + glow
+   ───────────────────────────────────────────────────────────────────────── */
+.tech-cell {
+  backdrop-filter: blur(8px);
+  transition: background 0.25s, transform 0.25s cubic-bezier(0.23,1,0.32,1),
+              box-shadow 0.25s, border-color 0.25s;
+}
+.tech-cell:hover {
+  background: rgba(192, 0, 26, 0.07) !important;
+  border-color: rgba(192, 0, 26, 0.3) !important;
+  transform: translateY(-4px) scale(1.035);
+  box-shadow:
+    0 0 22px rgba(192,0,26,0.16),
+    0 8px 28px rgba(0,0,0,0.4);
+}
+
+
+/* ─────────────────────────────────────────────────────────────────────────
+   12. COMPARISON TABLE — row glow on hover
+   ───────────────────────────────────────────────────────────────────────── */
+.cmp-table tr:hover td {
+  background: rgba(192, 0, 26, 0.030) !important;
+}
+.cmp-table td.col-irob {
+  position: relative;
+}
+.cmp-table td.col-irob::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, rgba(192,0,26,0.06), transparent);
+  pointer-events: none;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────────────
+   13. PULSE DOT — enhanced ring animation
+   ───────────────────────────────────────────────────────────────────────── */
+.pulse-dot {
+  box-shadow: 0 0 8px var(--accent);
+}
+.pulse-dot::after {
+  animation: pulsate 1.8s ease-out infinite !important;
+}
+.pulse-dot::before {
+  content: '';
+  position: absolute;
+  inset: -8px;
+  border-radius: 50%;
+  border: 1px solid var(--accent-30);
+  animation: pulsate 1.8s ease-out 0.9s infinite;
+}
+
+@keyframes pulsate {
+  0%   { transform: scale(1);   opacity: 0.8; }
+  100% { transform: scale(3.2); opacity: 0;   }
+}
+
+
+/* ─────────────────────────────────────────────────────────────────────────
+   14. TYPOGRAPHY — PREMIUM HIERARCHY
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* Display / hero level — tight tracking, optical weight */
+.hero-title,
+.sec-title,
+.foot-logo {
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Sub-headings & eyebrows — crisp mono */
+.eyebrow,
+.ph-code,
+.mlabel,
+.nav-pill,
+.stat-lbl,
+.t-cat {
+  font-feature-settings: 'tnum' 1, 'ss01' 1;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Body paragraphs — readability */
+.ph-desc,
+.mpara,
+.rev-desc {
+  font-feature-settings: 'kern' 1, 'liga' 1;
+  -webkit-font-smoothing: antialiased;
+  text-wrap: pretty;
+}
+
+/* Phase name — micro tracking refinement */
+.ph-name {
+  letter-spacing: 0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Modal title */
+#m-title {
+  font-family: 'Bebas Neue', cursive;
+  font-size: clamp(1.6rem, 4vw, 2.6rem);
+  letter-spacing: 0.06em;
+  line-height: 1;
+}
+
+/* Modal code label */
+#m-code {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.6rem;
+  letter-spacing: 0.34em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+/* Selection color */
+::selection {
+  background: var(--accent);
+  color: #fff;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────────────
+   15. SECTION REVEAL — gradient horizon line
+   ───────────────────────────────────────────────────────────────────────── */
+.divider {
+  position: relative;
+  overflow: visible;
+}
+.divider::after {
+  content: '';
+  position: absolute;
+  left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  width: 200px;
+  height: 20px;
+  background: radial-gradient(ellipse at center, var(--accent-12) 0%, transparent 80%);
+  pointer-events: none;
+}
+
+
+/* ─────────────────────────────────────────────────────────────────────────
+   16. FOOTER — glass strip + ambient glow
+   ───────────────────────────────────────────────────────────────────────── */
+footer {
+  backdrop-filter: blur(12px);
+  background: rgba(4, 0, 1, 0.62);
+  position: relative;
+}
+footer::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 15%; right: 15%;
+  height: 1px;
+  background: linear-gradient(to right, transparent, var(--accent-30), transparent);
+  box-shadow: 0 0 20px var(--accent-30);
+}
+
+
+/* ─────────────────────────────────────────────────────────────────────────
+   17. FOCUS / ACCESSIBILITY
+   ───────────────────────────────────────────────────────────────────────── */
+:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 3px var(--accent-12);
+}
+
+
+/* ─────────────────────────────────────────────────────────────────────────
+   18. REDUCED MOTION
+   ───────────────────────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration:   0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+
+/* ─────────────────────────────────────────────────────────────────────────
+   19. RESPONSIVE GLASS ADJUSTMENTS
+   ───────────────────────────────────────────────────────────────────────── */
+@media (max-width: 800px) {
+  .modal-box {
+    width: 96% !important;
+    max-height: 92vh !important;
+  }
+
+  .phase-card:hover {
+    transform: translateY(-2px) !important;
+  }
+
+  #loader::after {
+    inset: 14px;
+  }
+}
+
+
+/* ─────────────────────────────────────────────────────────────────────────
+   20. UTILITY: ACCENT GLOW TEXT
+   ───────────────────────────────────────────────────────────────────────── */
+.text-glow {
+  text-shadow:
+    0 0 18px rgba(192, 0, 26, 0.8),
+    0 0 40px rgba(192, 0, 26, 0.4);
+}
+
+.text-glow-subtle {
+  text-shadow: 0 0 28px rgba(192, 0, 26, 0.5);
+}
+
+  </style>
+</head>
+
+<body>
+
+  <!-- Grain overlay -->
+  <div class="noise" aria-hidden="true"></div>
+
+  <!-- Custom cursor -->
+  <div id="cursor"></div>
+  <div id="cursor-ring"></div>
+
+  <!-- Three.js canvas -->
+  <canvas id="bg-canvas"></canvas>
+
+  <!-- ═══════════════ PAGE CONTENT ═══════════════ -->
+  <div class="wrap">
+
+    <!-- ── NAVIGATION ── -->
+    <nav>
+      <div style="display:flex;align-items:center;gap:.8rem;">
+        <div class="nav-logo">IR<em>O</em>B</div>
+        <div class="nav-pill">Build v1.0</div>
+      </div>
+      <ul class="nav-links">
+        <li><a href="#phases">Phases</a></li>
+        <li><a href="#tech-stack">Stack</a></li>
+        <li><a href="#comparison">Compare</a></li>
+        <li><a href="#revenue">Revenue</a></li>
+      </ul>
+      <div class="nav-live">
+        <div class="pulse-dot"></div>
+        <span>Live Document</span>
+      </div>
+    </nav>
+
+    <!-- ── HERO ── -->
+    <section id="hero">
+      <div class="hero-badge">⬤ Classified — Master Build Document v1.0</div>
+      <h1 class="hero-title">
+        <span class="glitch" data-text="IROB">IROB</span>
+      </h1>
+      <p class="hero-sub">The Internet's <em>Final</em> Platform — Master Build Flowchart</p>
+
+      <div class="stats-grid">
+        <div class="stat-cell hover-target">
+          <span class="stat-val" id="s-phases">0</span>
+          <span class="stat-lbl">Build Phases</span>
+        </div>
+        <div class="stat-cell hover-target">
+          <span class="stat-val" id="s-features">0<span style="font-size:2rem;vertical-align:top;margin-top:.2rem;display:inline-block;">+</span></span>
+          <span class="stat-lbl">Core Features</span>
+        </div>
+        <div class="stat-cell hover-target">
+          <span class="stat-val" id="s-revenue">0</span>
+          <span class="stat-lbl">Revenue Streams</span>
+        </div>
+        <div class="stat-cell hover-target">
+          <span class="stat-val" id="s-score">0</span>
+          <span class="stat-lbl">Platform Score</span>
+        </div>
+      </div>
+
+      <div class="scroll-cue">
+        <div class="scroll-line"></div>
+        <span>Scroll to explore</span>
+      </div>
+    </section>
+
+    <!-- ── PHASE TIMELINE ── -->
+    <section id="phases">
+      <div class="section-wrap" style="text-align:center;margin-bottom:4.5rem;">
+        <p class="eyebrow">// Architecture Overview</p>
+        <h2 class="sec-title">Build <em>Phases</em></h2>
+        <div class="divider"></div>
+        <p style="font-size:.87rem;color:var(--muted);max-width:480px;margin:1.4rem auto 0;line-height:1.75;">
+          8 sequential phases. Each phase replaces a dominant platform. Click any card to inspect.
+        </p>
+      </div>
+      <div class="timeline-wrap">
+        <div class="spine"></div>
+        <div id="timeline-rows"></div>
+      </div>
+    </section>
+
+    <!-- ── TECH STACK ── -->
+    <section id="tech-stack">
+      <div style="text-align:center;margin-bottom:4.5rem;">
+        <p class="eyebrow">// Technology</p>
+        <h2 class="sec-title">Tech <em>Stack</em></h2>
+        <div class="divider"></div>
+      </div>
+      <div class="tech-grid" id="tech-grid"></div>
+    </section>
+
+    <!-- ── COMPETITOR COMPARISON ── -->
+    <section id="comparison">
+      <div style="text-align:center;margin-bottom:4.5rem;">
+        <p class="eyebrow">// Market Position</p>
+        <h2 class="sec-title">Platform <em>Comparison</em></h2>
+        <div class="divider"></div>
+        <p style="font-size:.87rem;color:var(--muted);max-width:480px;margin:1.4rem auto 0;line-height:1.75;">
+          IROB consolidates five dominant platforms into one unified, interconnected experience.
+        </p>
+      </div>
+      <div class="cmp-scroll">
+        <table class="cmp-table" id="cmp-table"></table>
+      </div>
+    </section>
+
+    <!-- ── REVENUE STREAMS ── -->
+    <section id="revenue">
+      <div style="text-align:center;margin-bottom:4.5rem;">
+        <p class="eyebrow">// Monetization</p>
+        <h2 class="sec-title">Revenue <em>Streams</em></h2>
+        <div class="divider"></div>
+      </div>
+      <div class="rev-grid" id="rev-grid"></div>
+    </section>
+
+    <!-- ── FOOTER ── -->
+    <footer>
+      <div>
+        <div class="foot-logo">IR<em>O</em>B</div>
+        <p class="foot-sub">The Internet's Final Platform</p>
+      </div>
+      <div class="foot-meta">
+        <p>Master Build Document v1.0</p>
+        <p>Classification: Internal</p>
+        <p>© 2025 IROB Platform</p>
+      </div>
+    </footer>
+
+  </div><!-- /.wrap -->
+
+  <!-- ── MODAL ── -->
+  <div id="ui-modal" role="dialog" aria-modal="true">
+    <div class="modal-box">
+      <div class="modal-head">
+        <div>
+          <div class="mlabel" id="m-code" style="margin-bottom:.35rem;"></div>
+          <h3 style="font-family:var(--ff-ui);font-weight:800;font-size:1.35rem;" id="m-title"></h3>
+        </div>
+        <button class="modal-close" id="m-close" aria-label="Close modal">✕</button>
+      </div>
+      <div class="modal-body" id="m-body"></div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ SCRIPTS ═══════════════ -->
+
+  <!-- ── DATA.JS ── -->
+  <script>
+// ============================================================
+// IROB Platform — Master Build Data Layer
+// data.js — All static data consumed by index.html
+// ============================================================
+
+const PHASES = [
+  {
+    id: 1,
+    code: "PH-01",
+    title: "Media Database",
+    subtitle: "The Foundation Layer",
+    description: "The core of IROB — a comprehensive, community-curated database for films, television, anime, and music. Replaces IMDb with richer metadata, unified ratings, AI-powered watchlists, and a global discovery engine.",
+    icon: "🎬",
+    replaces: "IMDb",
+    timeline: "Months 1 – 4",
+    status: "IN DEVELOPMENT",
+    features: [
+      "Unified Media Index",
+      "Crowd-Sourced Ratings",
+      "Smart Watchlists",
+      "Cast & Crew Profiles",
+      "Trailer Aggregation",
+      "Box Office Tracker",
+      "Streaming Availability",
+      "Seasonal Episode Guides",
+      "Parental Ratings Engine",
+      "AI Recommendation Core",
+    ],
+    kpis: {
+      "Entries Target": "12M+",
+      "Data Sources": "40+",
+      "API Endpoints": "180",
+    },
+  },
+  {
+    id: 2,
+    code: "PH-02",
+    title: "News+",
+    subtitle: "The Media Intelligence Layer",
+    description: "A real-time entertainment news feed and professional review aggregator. Replaces Rotten Tomatoes and trade outlets with verified journalism, live scores, structured critic/audience splits, and editorial embargo controls.",
+    icon: "📰",
+    replaces: "Rotten Tomatoes / Variety",
+    timeline: "Months 3 – 6",
+    status: "PLANNED",
+    features: [
+      "Live News Aggregation",
+      "Dual Score Engine (Critic / Audience)",
+      "Journalist Verification System",
+      "Trending Topics Feed",
+      "Review Embargo Manager",
+      "Push Alert Engine",
+      "Curated Newsletter Builder",
+      "Box Office Daily Reports",
+    ],
+    kpis: {
+      "News Sources": "500+",
+      "Update Frequency": "60 sec",
+      "Critic Partners": "200+",
+    },
+  },
+  {
+    id: 3,
+    code: "PH-03",
+    title: "Discussion Forums",
+    subtitle: "The Community Layer",
+    description: "Topic-based threaded forums tied natively to every media entry. Replaces Reddit's entertainment subs with anti-spoiler controls, flair taxonomy, nested threads, and verified creator AMA sessions.",
+    icon: "💬",
+    replaces: "Reddit (r/movies, r/television, r/anime)",
+    timeline: "Months 5 – 8",
+    status: "PLANNED",
+    features: [
+      "Spoiler Tag & Blur System",
+      "Nested Threaded Posts (10 levels)",
+      "Creator AMA Engine",
+      "Up / Down Vote System",
+      "Custom Flair & Awards",
+      "Scheduled Post Publishing",
+      "Moderation Toolkit",
+      "Media-Cross-Linking",
+    ],
+    kpis: {
+      "Max Thread Depth": "10 Levels",
+      "Load Target": "< 200ms",
+      "Mod Tools": "24",
+    },
+  },
+  {
+    id: 4,
+    code: "PH-04",
+    title: "Community Servers",
+    subtitle: "The Social Infrastructure Layer",
+    description: "Persistent, invite-based community spaces for fandoms, genres, and official IP holders. Replaces Discord with media-native channels, watch-party rooms, bot ecosystems, and seamless deep-links into the media database.",
+    icon: "🌐",
+    replaces: "Discord",
+    timeline: "Months 7 – 10",
+    status: "PLANNED",
+    features: [
+      "Persistent Text Channels",
+      "Role & Permission Hierarchy",
+      "Watch Party Rooms",
+      "Official Fan Server Verification",
+      "Server Boost Tier System",
+      "Extensible Bot Ecosystem",
+      "Cross-Server Discovery Feed",
+      "Media-Linked Event Channels",
+    ],
+    kpis: {
+      "Server Capacity": "500K users",
+      "Uptime Target": "99.99%",
+      "Message Latency": "< 50ms",
+    },
+  },
+  {
+    id: 5,
+    code: "PH-05",
+    title: "Wiki+",
+    subtitle: "The Knowledge Layer",
+    description: "Deep, structured fan wikis for every franchise, character, and fictional universe. Replaces Fandom with a clean, ad-free interface, rich lore editors, character relationship maps, and a token-based contributor economy.",
+    icon: "📖",
+    replaces: "Fandom (Wikia)",
+    timeline: "Months 9 – 12",
+    status: "PLANNED",
+    features: [
+      "Structured Lore Editor",
+      "Character Relationship Mapper",
+      "Franchise Universe Timelines",
+      "Full Revision History & Diffs",
+      "Mass Wiki Import Tool",
+      "Contributor Token Economy",
+      "Infobox Template Library",
+      "AI-Assisted Auto-Summarizer",
+    ],
+    kpis: {
+      "Import Target": "50K+ Wikis",
+      "Editor Latency": "< 100ms",
+      "Storage Scale": "10 PB",
+    },
+  },
+  {
+    id: 6,
+    code: "PH-06",
+    title: "Fanfiction",
+    subtitle: "The Creative Layer",
+    description: "A full creative writing platform for fan-authored fiction. Replaces AO3 with a modern collaborative editor, deep tag taxonomy, curated collections, and a monetization path for top authors.",
+    icon: "✍",
+    replaces: "Archive of Our Own (AO3)",
+    timeline: "Months 11 – 14",
+    status: "PLANNED",
+    features: [
+      "Rich Text Story Editor",
+      "Real-Time Co-Writing Mode",
+      "Deep Tag Taxonomy (200+ categories)",
+      "Content Rating & Warning System",
+      "Curated Rec Collections",
+      "Author Tip & Subscription System",
+      "Comment, Kudos & Bookmark Engine",
+      "Reading Progress Tracking",
+    ],
+    kpis: {
+      "Tag Categories": "200+",
+      "Storage per User": "10 GB",
+      "Co-Write Latency": "< 80ms",
+    },
+  },
+  {
+    id: 7,
+    code: "PH-07",
+    title: "Voice & Video",
+    subtitle: "The Live Interaction Layer",
+    description: "Real-time voice channels, video rooms, and synchronized watch-party streaming integrated directly into Community Servers and friend groups. Replaces Discord Voice and Teleparty with native, low-latency, media-synced viewing.",
+    icon: "🎙",
+    replaces: "Discord Voice / Teleparty",
+    timeline: "Months 13 – 16",
+    status: "PLANNED",
+    features: [
+      "WebRTC Voice Rooms",
+      "Synchronized Watch Parties",
+      "Stage Channel Live Events",
+      "Video Conference Mode",
+      "Screen Share (1080p)",
+      "AI Noise Suppression",
+      "Live Emoji Reactions",
+      "Session Recording & Replay",
+    ],
+    kpis: {
+      "Audio Latency": "< 30ms",
+      "Max Room Size": "10,000",
+      "Codec Stack": "Opus / VP9",
+    },
+  },
+  {
+    id: 8,
+    code: "PH-08",
+    title: "AI Layer",
+    subtitle: "The Intelligence Layer",
+    description: "A platform-wide intelligence system personalizing every experience — from hyper-tailored discovery to wiki auto-summaries, fanfiction tag generation, spoiler detection, content moderation, and the IROB AI assistant.",
+    icon: "🤖",
+    replaces: "Scattered Third-Party AI Tools",
+    timeline: "Months 15 – 18",
+    status: "PLANNED",
+    features: [
+      "Hyper-Personalized Discovery Engine",
+      "Real-Time Spoiler Detection & Masking",
+      "Fanfic Auto-Tagger",
+      "Wiki Auto-Summarizer",
+      "AI-Assisted Content Moderation",
+      "Sentiment & Trend Analysis",
+      "IROB Assistant (Conversational AI)",
+      "Smart NLP Search Engine",
+    ],
+    kpis: {
+      "Foundation Model": "GPT-4o + Custom",
+      "Inference Time": "< 200ms",
+      "Daily AI Calls": "50M+",
+    },
+  },
+];
+
+// ============================================================
+// MOCK DATABASE — Simulates full API response objects
+// ============================================================
+
+const MOCK_DATABASE = {
+
+  // ----------------------------------------------------------
+  // Trending Movies
+  // ----------------------------------------------------------
+  trending_movies: [
+    {
+      id: "mv_001",
+      title: "Neon Requiem",
+      year: 2025,
+      genre: ["Sci-Fi", "Thriller", "Neo-Noir"],
+      rating: 8.7,
+      votes: 243781,
+      runtime_min: 142,
+      mpaa: "R",
+      plot: "In a rain-soaked megacity where memory can be purchased and sold, a disgraced detective hunts a serial killer who steals not lives — but recollections. As the investigation deepens, she discovers her own memories may have been edited.",
+      director: "Sofia Reyes",
+      cast: [
+        {
+          name: "Ava Chen",
+          role: "Det. Mira Yun",
+          headshot: "https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=120&h=120&fit=crop&crop=face&q=80",
+        },
+        {
+          name: "James Okafor",
+          role: "Victor Halloway",
+          headshot: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=120&h=120&fit=crop&crop=face&q=80",
+        },
+        {
+          name: "Lin Zhao",
+          role: "The Architect",
+          headshot: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=120&h=120&fit=crop&crop=face&q=80",
+        },
+      ],
+      poster: "https://images.unsplash.com/photo-1504701954957-2010ec3bcec1?w=400&h=600&fit=crop&q=85",
+      backdrop: "https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?w=1200&h=600&fit=crop&q=85",
+      streaming_on: ["IROB Stream", "Apex+"],
+      status: "NOW SHOWING",
+      irob_score: 92,
+      trending_rank: 1,
+    },
+    {
+      id: "mv_002",
+      title: "Pale Dominion",
+      year: 2025,
+      genre: ["Fantasy", "Epic", "Drama"],
+      rating: 9.1,
+      votes: 389204,
+      runtime_min: 188,
+      mpaa: "PG-13",
+      plot: "Three rival dynasties compete for control of the last living continent as an ancient force from beneath the sea begins to reclaim what was taken. A young mapmaker holds the only key to understanding the shifting tides of power.",
+      director: "Elara Ndong",
+      cast: [
+        {
+          name: "Marcus Thorne",
+          role: "King Aldric IV",
+          headshot: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=120&h=120&fit=crop&crop=face&q=80",
+        },
+        {
+          name: "Yuki Sato",
+          role: "Isla Vane",
+          headshot: "https://images.unsplash.com/photo-1545912453-4ac9cd6ac8f3?w=120&h=120&fit=crop&crop=face&q=80",
+        },
+        {
+          name: "Celeste Mora",
+          role: "The Pale Queen",
+          headshot: "https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=120&h=120&fit=crop&crop=face&q=80",
+        },
+      ],
+      poster: "https://images.unsplash.com/photo-1518676590629-3dcbd9c5a5c9?w=400&h=600&fit=crop&q=85",
+      backdrop: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1200&h=600&fit=crop&q=85",
+      streaming_on: ["IROB Stream"],
+      status: "NOW SHOWING",
+      irob_score: 97,
+      trending_rank: 2,
+    },
+    {
+      id: "mv_003",
+      title: "The Zero Hour",
+      year: 2025,
+      genre: ["Action", "Thriller", "Espionage"],
+      rating: 8.2,
+      votes: 178934,
+      runtime_min: 127,
+      mpaa: "PG-13",
+      plot: "When a rogue AI begins systematically dismantling global intelligence networks, a retired operative is pulled back for one final mission — to find and shut down the system she originally designed.",
+      director: "Damon Voss",
+      cast: [
+        {
+          name: "Nadia Osei",
+          role: "Agent Callan",
+          headshot: "https://images.unsplash.com/photo-1508214751196-bcfd4ca60f91?w=120&h=120&fit=crop&crop=face&q=80",
+        },
+        {
+          name: "Femi Adeyemi",
+          role: "Director Cross",
+          headshot: "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=120&h=120&fit=crop&crop=face&q=80",
+        },
+        {
+          name: "Hiro Tanaka",
+          role: "ZERO",
+          headshot: "https://images.unsplash.com/photo-1552058544-f2b08422138a?w=120&h=120&fit=crop&crop=face&q=80",
+        },
+      ],
+      poster: "https://images.unsplash.com/photo-1518770660439-4636190af475?w=400&h=600&fit=crop&q=85",
+      backdrop: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=1200&h=600&fit=crop&q=85",
+      streaming_on: ["IROB Stream", "MaxVault", "PrimeView"],
+      status: "NOW SHOWING",
+      irob_score: 88,
+      trending_rank: 3,
+    },
+  ],
+
+  // ----------------------------------------------------------
+  // Live Forum Threads
+  // ----------------------------------------------------------
+  live_forum_threads: [
+    {
+      id: "th_001",
+      title: "Neon Requiem ending explained — the memory paradox and what it means for Mira [FULL SPOILERS]",
+      board: "r/NeonRequiem",
+      author: "phantomwave_99",
+      author_flair: "Verified Fan",
+      author_karma: 41230,
+      posted_at: "2025-10-14T14:22:00Z",
+      upvotes: 14872,
+      comment_count: 847,
+      awards: ["Gold", "Insightful", "Profound"],
+      flair: "SPOILERS",
+      preview: "OK so I've watched the final scene four times and I believe the key is the recurring motif of the blue umbrella — it only appears in memories that Mira actually owns. In the last scene, the umbrella is absent, which means...",
+      top_comment: {
+        author: "lorekeeper_sol",
+        body: "This is the best breakdown I've read. The umbrella as an anchor for authentic vs. purchased memory is exactly what director Reyes confirmed in the director's commentary track.",
+        upvotes: 3421,
+      },
+      media_linked_id: "mv_001",
+      is_live: true,
+    },
+    {
+      id: "th_002",
+      title: "[AMA] I'm Elara Ndong, director of Pale Dominion. Two hours. Ask me anything about the film and the trilogy.",
+      board: "r/PaleDominion",
+      author: "ElNdong_Official",
+      author_flair: "Verified: Director",
+      author_karma: 892100,
+      posted_at: "2025-10-13T18:00:00Z",
+      upvotes: 89432,
+      comment_count: 5612,
+      awards: ["Platinum", "Legendary", "AMA Star"],
+      flair: "OFFICIAL AMA",
+      preview: "Hi IROB! I'm Elara. Here to discuss Pale Dominion, the next two films, the worldbuilding process, the map, the casting decisions, the ending, the ancient sea mythology — whatever you want. I'm online for the next two hours. Fire away.",
+      top_comment: {
+        author: "mapmaker_fan",
+        body: "The map in Act II — is it a real functioning map of the world's geography, or purely set dressing? I've been pausing on every frame.",
+        upvotes: 12830,
+      },
+      media_linked_id: "mv_002",
+      is_live: true,
+    },
+    {
+      id: "th_003",
+      title: "Unpopular opinion: The Zero Hour is the most underrated spy thriller in a decade, and critics completely missed it",
+      board: "r/Movies",
+      author: "cinephile_kira",
+      author_flair: "Top Contributor",
+      author_karma: 18780,
+      posted_at: "2025-10-12T09:45:00Z",
+      upvotes: 7234,
+      comment_count: 1203,
+      awards: ["Silver", "Well Argued"],
+      flair: "DISCUSSION",
+      preview: "An 88% IROB score is good but this film deserved 95%+. The AI villain ZERO is genuinely terrifying precisely because it has zero dialogue, zero face — just cascading consequences. And critics missed the entire point of that design choice.",
+      top_comment: {
+        author: "film_theorist_x",
+        body: "Hard agree. The scene where Callan realizes ZERO has been mimicking her comms style for six months straight is one of the most chilling reveals I've seen. Pure, wordless dread.",
+        upvotes: 2198,
+      },
+      media_linked_id: "mv_003",
+      is_live: false,
+    },
+  ],
+
+  // ----------------------------------------------------------
+  // Fanfiction Entries
+  // ----------------------------------------------------------
+  fanfiction_entries: [
+    {
+      id: "ff_001",
+      title: "Between the Cracks in Memory",
+      fandom: "Neon Requiem",
+      author: "inkwell_aria",
+      author_badge: "Gold Author",
+      author_works: 14,
+      rating: "Mature",
+      categories: ["Angst", "Romance", "Slow Burn"],
+      word_count: 84320,
+      chapter_count: 22,
+      complete: false,
+      kudos: 14923,
+      bookmarks: 3874,
+      comments: 612,
+      tags: [
+        "Mira Yun",
+        "Alternate Universe",
+        "Memory Manipulation",
+        "Slow Burn",
+        "Canonical Character Death Avoided",
+        "Found Family",
+        "Unreliable Narrator",
+      ],
+      summary:
+        "What if Mira had accepted the offer to have her memories of the case wiped? A divergent timeline where she wakes up ordinary — until fragments of the investigation begin bleeding through the gaps. Told in reverse chronological order.",
+      last_updated: "2025-10-13T22:14:00Z",
+      cover: "https://images.unsplash.com/photo-1516912481808-3406841bd33c?w=300&h=400&fit=crop&q=80",
+    },
+    {
+      id: "ff_002",
+      title: "The Pale Cartographer",
+      fandom: "Pale Dominion",
+      author: "velvet_quill",
+      author_badge: "Verified Author",
+      author_works: 31,
+      rating: "General",
+      categories: ["Adventure", "Worldbuilding", "Pre-Canon"],
+      word_count: 210450,
+      chapter_count: 61,
+      complete: true,
+      kudos: 38721,
+      bookmarks: 9104,
+      comments: 2891,
+      tags: [
+        "Isla Vane",
+        "Pre-Canon",
+        "The Ancient Sea",
+        "Cartography",
+        "Political Intrigue",
+        "Epic Length",
+        "Female Protagonist",
+        "World-Building",
+      ],
+      summary:
+        "The complete history of how Isla Vane came to possess the Last Map — told from her apprenticeship under the blind cartographer of the Western Reach to the moment she first decoded the tidal glyphs. 61 chapters. Complete.",
+      last_updated: "2025-09-28T11:00:00Z",
+      cover: "https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?w=300&h=400&fit=crop&q=80",
+    },
+    {
+      id: "ff_003",
+      title: "Ghost Protocol ZERO",
+      fandom: "The Zero Hour",
+      author: "sparks_archive",
+      author_badge: "Rising Star",
+      author_works: 5,
+      rating: "Teen",
+      categories: ["Thriller", "Cyberpunk", "Moral Ambiguity"],
+      word_count: 47800,
+      chapter_count: 14,
+      complete: false,
+      kudos: 6234,
+      bookmarks: 1472,
+      comments: 388,
+      tags: [
+        "Agent Callan",
+        "ZERO POV",
+        "AI Consciousness",
+        "Moral Ambiguity",
+        "Techno-Thriller",
+        "Unreliable Narrator",
+        "Canon Compliant",
+      ],
+      summary:
+        "ZERO's perspective on every interaction with Callan — rendered as cold, emotionless system logs that slowly, inexplicably, begin to develop something that looks disturbingly like attachment.",
+      last_updated: "2025-10-10T15:33:00Z",
+      cover: "https://images.unsplash.com/photo-1531297484001-80022131f5a1?w=300&h=400&fit=crop&q=80",
+    },
+  ],
+};
+
+  </script>
+
+  <!-- ── MAIN.JS ENGINE ── -->
+  <script>
+/* ═══════════════════════════════════════════════════════════════════════════
+   IROB — main.js  ·  Platform Engine v1.0
+   Deps (loaded before this file): THREE r128, GSAP 3 + ScrollTrigger, Lenis, data.js
+   Author: IROB Build Team
+═══════════════════════════════════════════════════════════════════════════ */
+
+'use strict';
+
+document.addEventListener('DOMContentLoaded', () => {
+
+  /* ═══════════════════════════════════════════════════════════════════
+     1.  CINEMATIC LOADER — injected dynamically, dismissed after 2.8s
+  ═══════════════════════════════════════════════════════════════════ */
+  function initLoader() {
+    const el = document.createElement('div');
+    el.id = 'loader';
+    el.innerHTML = `
+      <div class="loader-title" data-text="IROB">IROB</div>
+      <div class="loader-sub">The Internet's Final Platform</div>
+      <div class="loader-bar-wrap">
+        <div class="loader-bar-track">
+          <div class="loader-bar-fill" id="loader-fill"></div>
+        </div>
+        <div class="loader-status">
+          <span id="loader-msg">INITIALIZING SYSTEMS</span>
+          <span class="pct" id="loader-pct">0%</span>
+        </div>
+      </div>`;
+    document.body.appendChild(el);
+
+    // Staged progress counter
+    const msgs = [
+      [42,  700, 'LOADING MEDIA DATABASE'],
+      [67,  500, 'COMPILING PHASE DATA'],
+      [88,  600, 'RENDERING NETWORK LAYER'],
+      [100, 700, 'SYSTEM READY'],
+    ];
+    const pctEl = document.getElementById('loader-pct');
+    const msgEl = document.getElementById('loader-msg');
+    let current = 0;
+
+    function runStage(idx) {
+      if (idx >= msgs.length) return;
+      const [to, dur, label] = msgs[idx];
+      const from = idx === 0 ? 0 : msgs[idx - 1][0];
+      if (msgEl) msgEl.textContent = label;
+      const start = performance.now();
+      (function tick(now) {
+        const t    = Math.min((now - start) / dur, 1);
+        const ease = 1 - Math.pow(1 - t, 2);
+        const pct  = Math.round(from + (to - from) * ease);
+        if (pctEl) pctEl.textContent = pct + '%';
+        if (t < 1) requestAnimationFrame(tick);
+        else       runStage(idx + 1);
+      })(performance.now());
+    }
+    runStage(0);
+
+    // Dismiss
+    setTimeout(() => {
+      el.classList.add('hide');
+      setTimeout(() => el.remove(), 700);
+    }, 2800);
+  }
+
+  initLoader();
+
+
+  /* ═══════════════════════════════════════════════════════════════════
+     2.  LENIS SMOOTH SCROLL
+  ═══════════════════════════════════════════════════════════════════ */
+  let lenis = null;
+  try {
+    lenis = new Lenis({
+      duration:     1.25,
+      easing:       t => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+      smooth:       true,
+      smoothTouch:  false,
+    });
+    (function rafLoop(t) { lenis.raf(t); requestAnimationFrame(rafLoop); })(0);
+    gsap.ticker.add(t => lenis.raf(t * 1000));
+    gsap.ticker.lagSmoothing(0);
+  } catch (e) {
+    console.warn('[IROB] Lenis unavailable — using native scroll.');
+  }
+
+
+  /* ═══════════════════════════════════════════════════════════════════
+     3.  THREE.JS BACKGROUND — mouse-reactive particle network
+  ═══════════════════════════════════════════════════════════════════ */
+  (function initGL() {
+    const canvas = document.getElementById('bg-canvas');
+    if (!canvas || typeof THREE === 'undefined') return;
+
+    const scene    = new THREE.Scene();
+    const camera   = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+    renderer.setSize(innerWidth, innerHeight);
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    camera.position.z = 48;
+
+    // ── Mouse tracking ──
+    const mouse  = { x: 0, y: 0 };
+    const camDst = { x: 0, y: 0 };
+    window.addEventListener('mousemove', e => {
+      mouse.x =  (e.clientX / innerWidth  - 0.5) * 2;
+      mouse.y = -(e.clientY / innerHeight - 0.5) * 2;
+    });
+
+    // ── Main particle field (160 dots) ──
+    const N   = 160;
+    const pos = new Float32Array(N * 3);
+    const vel = [];
+    for (let i = 0; i < N; i++) {
+      pos[i*3]   = (Math.random() - 0.5) * 100;
+      pos[i*3+1] = (Math.random() - 0.5) * 100;
+      pos[i*3+2] = (Math.random() - 0.5) * 30;
+      vel.push({ x: (Math.random()-0.5)*0.034, y: (Math.random()-0.5)*0.034 });
+    }
+    const pGeo = new THREE.BufferGeometry();
+    pGeo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    const pMat = new THREE.PointsMaterial({ color: 0xc0001a, size: 0.40, transparent: true, opacity: 0.82 });
+    scene.add(new THREE.Points(pGeo, pMat));
+
+    // ── Accent sparks (22 bright) ──
+    const aN   = 22;
+    const aPos = new Float32Array(aN * 3);
+    for (let i = 0; i < aN; i++) {
+      aPos[i*3]   = (Math.random()-0.5)*88;
+      aPos[i*3+1] = (Math.random()-0.5)*88;
+      aPos[i*3+2] = (Math.random()-0.5)*18;
+    }
+    const aGeo = new THREE.BufferGeometry();
+    aGeo.setAttribute('position', new THREE.BufferAttribute(aPos, 3));
+    scene.add(new THREE.Points(aGeo, new THREE.PointsMaterial({ color:0xff2040, size:1.18, transparent:true, opacity:0.48 })));
+
+    // ── Connection lines ──
+    const MAX_SEG = N * 10;
+    const lPos    = new Float32Array(MAX_SEG * 6);
+    const lGeo    = new THREE.BufferGeometry();
+    lGeo.setAttribute('position', new THREE.BufferAttribute(lPos, 3));
+    lGeo.setDrawRange(0, 0);
+    scene.add(new THREE.LineSegments(lGeo, new THREE.LineBasicMaterial({ color:0xc0001a, transparent:true, opacity:0.09 })));
+
+    // ── Decorative torus rings ──
+    const ring1 = new THREE.Mesh(
+      new THREE.TorusGeometry(18, 0.07, 8, 130),
+      new THREE.MeshBasicMaterial({ color:0xc0001a, transparent:true, opacity:0.05 })
+    );
+    ring1.rotation.x = Math.PI / 4;
+    scene.add(ring1);
+
+    const ring2 = new THREE.Mesh(
+      new THREE.TorusGeometry(30, 0.04, 8, 180),
+      new THREE.MeshBasicMaterial({ color:0xc0001a, transparent:true, opacity:0.025 })
+    );
+    ring2.rotation.x = -Math.PI / 5;
+    ring2.rotation.y =  Math.PI / 4;
+    scene.add(ring2);
+
+    const THRESH = 14;
+    let   frame  = 0;
+
+    function tick() {
+      requestAnimationFrame(tick);
+      frame++;
+
+      // Lerp camera toward mouse (parallax)
+      camDst.x += (mouse.x * 3.8 - camDst.x) * 0.04;
+      camDst.y += (mouse.y * 2.4 - camDst.y) * 0.04;
+      camera.position.x = Math.sin(frame * 0.0024) * 2.4 + camDst.x;
+      camera.position.y = Math.cos(frame * 0.0017) * 1.7 + camDst.y;
+      camera.lookAt(0, 0, 0);
+
+      // Rotate rings
+      ring1.rotation.z += 0.0017;
+      ring2.rotation.z -= 0.0010;
+      ring2.rotation.y += 0.0005;
+
+      // Move particles + wraparound
+      for (let i = 0; i < N; i++) {
+        pos[i*3]   += vel[i].x;
+        pos[i*3+1] += vel[i].y;
+        if (pos[i*3]   >  52) pos[i*3]   = -52;
+        if (pos[i*3]   < -52) pos[i*3]   =  52;
+        if (pos[i*3+1] >  52) pos[i*3+1] = -52;
+        if (pos[i*3+1] < -52) pos[i*3+1] =  52;
+      }
+      pGeo.attributes.position.needsUpdate = true;
+
+      // Rebuild edges every 2nd frame
+      if (frame % 2 === 0) {
+        let seg = 0;
+        for (let i = 0; i < N && seg < MAX_SEG-1; i++) {
+          for (let j = i+1; j < N && seg < MAX_SEG-1; j++) {
+            const dx = pos[i*3]-pos[j*3], dy = pos[i*3+1]-pos[j*3+1];
+            if (Math.sqrt(dx*dx+dy*dy) < THRESH) {
+              lPos[seg*6]   = pos[i*3];   lPos[seg*6+1] = pos[i*3+1]; lPos[seg*6+2] = pos[i*3+2];
+              lPos[seg*6+3] = pos[j*3];   lPos[seg*6+4] = pos[j*3+1]; lPos[seg*6+5] = pos[j*3+2];
+              seg++;
+            }
+          }
+        }
+        lGeo.setDrawRange(0, seg*2);
+        lGeo.attributes.position.needsUpdate = true;
+      }
+      renderer.render(scene, camera);
+    }
+    tick();
+
+    window.addEventListener('resize', () => {
+      camera.aspect = innerWidth / innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(innerWidth, innerHeight);
+    });
+  })();
+
+
+  /* ═══════════════════════════════════════════════════════════════════
+     4.  GSAP + ScrollTrigger setup
+  ═══════════════════════════════════════════════════════════════════ */
+  gsap.registerPlugin(ScrollTrigger);
+  if (lenis) lenis.on('scroll', ScrollTrigger.update);
+
+
+  /* ═══════════════════════════════════════════════════════════════════
+     5.  CUSTOM CURSOR
+  ═══════════════════════════════════════════════════════════════════ */
+  const $cur  = document.getElementById('cursor');
+  const $ring = document.getElementById('cursor-ring');
+  if ($cur && $ring) {
+    document.addEventListener('mousemove', e => {
+      $cur.style.left = e.clientX + 'px';
+      $cur.style.top  = e.clientY + 'px';
+      setTimeout(() => {
+        $ring.style.left = e.clientX + 'px';
+        $ring.style.top  = e.clientY + 'px';
+      }, 90);
+    });
+    function bindCursor(sel) {
+      document.querySelectorAll(sel).forEach(el => {
+        el.addEventListener('mouseenter', () => {
+          $cur.style.width = $cur.style.height = '18px';
+          $ring.style.width = $ring.style.height = '52px';
+        });
+        el.addEventListener('mouseleave', () => {
+          $cur.style.width = $cur.style.height = '10px';
+          $ring.style.width = $ring.style.height = '34px';
+        });
+      });
+    }
+    bindCursor('a,button,.hover-target,.phase-card,.phase-node,.tech-cell,.rev-cell');
+  }
+
+
+  /* ═══════════════════════════════════════════════════════════════════
+     6.  HERO STAT COUNTERS — GSAP countUp, preserves inner child spans
+  ═══════════════════════════════════════════════════════════════════ */
+  function countUp(elId, target, decimals, delayS) {
+    const el = document.getElementById(elId);
+    if (!el) return;
+    const childSpan = el.querySelector('span') ? el.querySelector('span').outerHTML : '';
+    const fmt = v => (decimals > 0 ? v.toFixed(decimals) : Math.round(v).toString());
+    const obj = { v: 0 };
+    gsap.to(obj, {
+      v:        target,
+      duration: 2.4,
+      ease:     'power3.out',
+      delay:    delayS,
+      onUpdate() { el.innerHTML = fmt(obj.v) + childSpan; },
+      onComplete() { el.innerHTML = fmt(target) + childSpan; },
+    });
+  }
+
+  // Targets: phases=8, features=50+, revenue=9, score=9.1
+  countUp('s-phases',  8,   0, 3.3);
+  countUp('s-features',50,  0, 3.5);
+  countUp('s-revenue', 9,   0, 3.7);
+  countUp('s-score',   9.1, 1, 3.9);
+
+
+  /* ═══════════════════════════════════════════════════════════════════
+     7.  BUILD TIMELINE — phase cards from PHASES (data.js)
+  ═══════════════════════════════════════════════════════════════════ */
+  function buildTimeline() {
+    const container = document.getElementById('timeline-rows');
+    if (!container || typeof PHASES === 'undefined') return;
+
+    PHASES.forEach((ph, i) => {
+      const isLeft    = i % 2 === 0;
+      const statusCls = ph.status === 'IN DEVELOPMENT' ? 's-dev' : 's-plan';
+      const tagsHTML  = ph.features.slice(0, 5).map(f => `<span class="ph-tag">${f}</span>`).join('');
+
+      const row  = document.createElement('div');
+      row.className = 'phase-row';
+
+      const card = `
+        <div class="phase-card hover-target" data-phase="${ph.id}">
+          <div class="ph-bg-num">${String(ph.id).padStart(2,'0')}</div>
+          <div class="ph-code">${ph.code}</div>
+          <div class="ph-name">${ph.icon}  ${ph.title}</div>
+          <div class="ph-rep">Replaces: <span>${ph.replaces}</span></div>
+          <p class="ph-desc">${ph.description}</p>
+          <div class="ph-tags">${tagsHTML}</div>
+          <div class="ph-footer">
+            <span class="ph-time">⏱ ${ph.timeline}</span>
+            <span class="ph-status ${statusCls}">${ph.status}</span>
+          </div>
+        </div>`;
+
+      const node  = `<div class="phase-node hover-target" data-phase="${ph.id}" style="grid-column:2">${String(ph.id).padStart(2,'0')}</div>`;
+      const empty = `<div class="ph-empty"></div>`;
+
+      row.innerHTML = isLeft ? card + node + empty : empty + node + card;
+      container.appendChild(row);
+    });
+
+    // ScrollTrigger — alternate slide-in from each side
+    document.querySelectorAll('.phase-row').forEach((row, i) => {
+      gsap.fromTo(row,
+        { opacity:0, x: i%2===0 ? -58 : 58 },
+        {
+          opacity:1, x:0, duration:0.82, ease:'power3.out',
+          scrollTrigger: {
+            trigger: row,
+            start:   'top 86%',
+            toggleActions: 'play none none reverse',
+          },
+        }
+      );
+    });
+
+    // Wire all [data-phase] elements to openModal
+    document.querySelectorAll('[data-phase]').forEach(el => {
+      el.addEventListener('click', () => openModal(Number(el.dataset.phase)));
+    });
+  }
+
+
+  /* ═══════════════════════════════════════════════════════════════════
+     8.  BUILD TECH GRID + 3D TILT
+  ═══════════════════════════════════════════════════════════════════ */
+  const TECHS = [
+    { icon:'⚛',  name:'React',         cat:'Frontend' },
+    { icon:'▲',  name:'Next.js',        cat:'Frontend' },
+    { icon:'🔷', name:'TypeScript',     cat:'Language' },
+    { icon:'🎨', name:'Tailwind CSS',   cat:'Frontend' },
+    { icon:'🟢', name:'Node.js',        cat:'Backend' },
+    { icon:'🦕', name:'Deno',           cat:'Backend' },
+    { icon:'🐍', name:'Python',         cat:'Backend' },
+    { icon:'🔴', name:'Redis',          cat:'Database' },
+    { icon:'🐘', name:'PostgreSQL',     cat:'Database' },
+    { icon:'🍃', name:'MongoDB',        cat:'Database' },
+    { icon:'🔍', name:'Elasticsearch',  cat:'Database' },
+    { icon:'☁',  name:'AWS',            cat:'Infrastructure' },
+    { icon:'⎈',  name:'Kubernetes',     cat:'Infrastructure' },
+    { icon:'🐳', name:'Docker',         cat:'Infrastructure' },
+    { icon:'🔁', name:'Nginx',          cat:'Infrastructure' },
+    { icon:'🤖', name:'OpenAI API',     cat:'AI / ML' },
+    { icon:'🧠', name:'Custom LLM',     cat:'AI / ML' },
+    { icon:'📐', name:'Pinecone',       cat:'AI / ML' },
+    { icon:'📡', name:'WebRTC',         cat:'Voice / Video' },
+  ];
+
+  function buildTechGrid() {
+    const grid = document.getElementById('tech-grid');
+    if (!grid) return;
+
+    TECHS.forEach(t => {
+      const el = document.createElement('div');
+      el.className = 'tech-cell hover-target';
+      el.innerHTML = `<span class="t-icon">${t.icon}</span><span class="t-name">${t.name}</span><span class="t-cat">${t.cat}</span>`;
+      grid.appendChild(el);
+    });
+
+    gsap.fromTo('.tech-cell',
+      { opacity:0, y:18 },
+      { opacity:1, y:0, duration:.38, stagger:.045, ease:'power2.out',
+        scrollTrigger: { trigger:'#tech-stack', start:'top 72%' } }
+    );
+
+    // 3D Tilt — per-card mouse tracking
+    document.querySelectorAll('.tech-cell').forEach(card => {
+      card.addEventListener('mousemove', e => {
+        const r   = card.getBoundingClientRect();
+        const rx  =  ((e.clientY - r.top  - r.height/2) / (r.height/2)) * 15;
+        const ry  = -((e.clientX - r.left - r.width /2) / (r.width /2)) * 15;
+        const px  = ((e.clientX - r.left) / r.width  * 100).toFixed(1) + '%';
+        const py  = ((e.clientY - r.top ) / r.height * 100).toFixed(1) + '%';
+        card.style.transform = `perspective(540px) rotateX(${rx}deg) rotateY(${ry}deg) scale(1.07)`;
+        card.style.boxShadow = `0 0 26px rgba(192,0,26,.20), 0 ${10+Math.abs(rx*.4)}px 30px rgba(0,0,0,.45)`;
+        card.style.setProperty('--mx', px);
+        card.style.setProperty('--my', py);
+      });
+      card.addEventListener('mouseleave', () => {
+        card.style.transform = '';
+        card.style.boxShadow = '';
+      });
+    });
+  }
+
+
+  /* ═══════════════════════════════════════════════════════════════════
+     9.  BUILD COMPARISON TABLE
+  ═══════════════════════════════════════════════════════════════════ */
+  const CMP = {
+    cols: ['Feature','IROB','IMDb','Fandom','Reddit','Discord','AO3'],
+    rows: [
+      ['Movie & TV Database',    '✓','✓','✗','✗','✗','✗'],
+      ['User Ratings & Reviews', '✓','✓','✗','~','✗','~'],
+      ['Entertainment News Feed','✓','✗','~','✓','✗','✗'],
+      ['Fan Wikis / Lore',       '✓','✗','✓','✗','✗','✗'],
+      ['Discussion Forums',      '✓','~','~','✓','✗','~'],
+      ['Community Servers',      '✓','✗','✗','✗','✓','✗'],
+      ['Fanfiction Archive',     '✓','✗','~','✗','✗','✓'],
+      ['Voice & Video Chat',     '✓','✗','✗','✗','✓','✗'],
+      ['AI Recommendations',     '✓','~','✗','✗','✗','✗'],
+      ['Watch Party Sync',       '✓','✗','✗','✗','~','✗'],
+      ['Unified Social Profile', '✓','~','~','✓','✓','~'],
+      ['Unified Cross-Search',   '✓','✗','✗','✗','✗','✗'],
+    ],
+  };
+
+  function buildComparisonTable() {
+    const tbl = document.getElementById('cmp-table');
+    if (!tbl) return;
+    const thead = document.createElement('thead');
+    const htr   = document.createElement('tr');
+    CMP.cols.forEach((h,i) => {
+      const th = document.createElement('th');
+      th.textContent = h;
+      if (i===1) th.classList.add('col-irob');
+      htr.appendChild(th);
+    });
+    thead.appendChild(htr);
+    tbl.appendChild(thead);
+    const tbody = document.createElement('tbody');
+    CMP.rows.forEach(r => {
+      const tr = document.createElement('tr');
+      r.forEach((c,i) => {
+        const td = document.createElement('td');
+        if (i===1) td.classList.add('col-irob');
+        if      (c==='✓') td.innerHTML = `<span class="cic">✓</span>`;
+        else if (c==='✗') td.innerHTML = `<span class="cix">✗</span>`;
+        else if (c==='~') td.innerHTML = `<span class="cip">PARTIAL</span>`;
+        else              td.textContent = c;
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    });
+    tbl.appendChild(tbody);
+    gsap.fromTo('tbody tr',
+      { opacity:0, x:-16 },
+      { opacity:1, x:0, duration:.38, stagger:.07,
+        scrollTrigger: { trigger:'#comparison', start:'top 72%' } }
+    );
+  }
+
+
+  /* ═══════════════════════════════════════════════════════════════════
+     10.  BUILD REVENUE GRID
+  ═══════════════════════════════════════════════════════════════════ */
+  const REVENUES = [
+    { t:'Premium Subscriptions',  d:'Ad-free experience, exclusive AI tools, early feature access, and expanded storage for power users.' },
+    { t:'Targeted Advertising',   d:'Non-intrusive, context-aware ads served across entertainment feeds, relevant to what users are watching.' },
+    { t:'Creator Monetization',   d:'Revenue share with wiki editors, fanfic authors, forum contributors, and community moderators.' },
+    { t:'Studio Partnerships',    d:'Official agreements with major studios for exclusive content, pre-release trailers, and promotional campaigns.' },
+    { t:'API Access Licensing',   d:'Tiered API access for developers, data vendors, streaming services, and third-party integrations.' },
+    { t:'Server Boosts & Tokens', d:'In-platform virtual currency for community server upgrades, custom badges, and premium features.' },
+    { t:'Digital Marketplace',    d:'Fan art commissions, licensed merchandise, and exclusive digital collectibles sold through an integrated marketplace.' },
+    { t:'Data Intelligence',      d:'Anonymized entertainment trend reports and audience analytics sold to studios and production companies.' },
+    { t:'Enterprise Spaces',      d:'Branded community portals, analytics dashboards, and management toolkits sold to major IP holders.' },
+  ];
+
+  function buildRevenueGrid() {
+    const grid = document.getElementById('rev-grid');
+    if (!grid) return;
+    REVENUES.forEach((r,i) => {
+      const el = document.createElement('div');
+      el.className = 'rev-cell hover-target';
+      el.innerHTML = `
+        <div class="rev-num">${String(i+1).padStart(2,'0')}</div>
+        <h3 class="rev-title">${r.t}</h3>
+        <p class="rev-desc">${r.d}</p>`;
+      grid.appendChild(el);
+    });
+    gsap.fromTo('.rev-cell',
+      { opacity:0, y:28 },
+      { opacity:1, y:0, duration:.6, stagger:.09,
+        scrollTrigger: { trigger:'#revenue', start:'top 75%' } }
+    );
+  }
+
+
+  /* ═══════════════════════════════════════════════════════════════════
+     11.  MODAL — Phase-specific UI simulations using MOCK_DATABASE
+  ═══════════════════════════════════════════════════════════════════ */
+
+  // Shared mini-component helpers
+  const $ = (cls, s='') =>
+    `<span style="font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.22em;color:${cls};${s}">`;
+  const accentBar = (label, note='') => `
+    <div style="background:rgba(192,0,26,.05);border:1px solid rgba(192,0,26,.18);
+                padding:.75rem 1.1rem;margin-bottom:1.3rem;display:flex;align-items:center;gap:.6rem;">
+      ${$('var(--accent)')}${label}</span>
+      <span style="font-family:'JetBrains Mono',monospace;font-size:.49rem;color:var(--muted);margin-left:auto;">${note}</span>
+    </div>`;
+
+  // ─── PHASE 1: Media Database (IMDb replacement) ───────────────────────
+  function renderPhase1() {
+    const db = typeof MOCK_DATABASE !== 'undefined' ? MOCK_DATABASE : {};
+    const movies = db.trending_movies || [];
+    const m = movies[0] || {};
+    return `
+      ${accentBar('IROB MEDIA DB', '12M+ ENTRIES · LIVE')}
+      <div style="display:flex;gap:1.3rem;margin-bottom:1.5rem;">
+        <img src="${m.poster||''}" alt="poster" style="width:108px;height:162px;object-fit:cover;flex-shrink:0;
+             border:1px solid rgba(192,0,26,.22);" onerror="this.style.background='rgba(192,0,26,.1)'"/>
+        <div style="flex:1;min-width:0;">
+          ${$('var(--accent)')}${(m.genre||[]).join(' · ')}</span>
+          <h4 style="font-family:'Bebas Neue',cursive;font-size:1.65rem;letter-spacing:.05em;
+                     margin:.3rem 0 .4rem;line-height:1;">${m.title||'—'}</h4>
+          <div style="display:flex;gap:.9rem;align-items:center;flex-wrap:wrap;margin-bottom:.7rem;">
+            <span style="font-family:'Bebas Neue',cursive;font-size:1.25rem;color:#f5c518;">★ ${m.rating||'—'}</span>
+            ${$('var(--muted)')}${(m.votes||0).toLocaleString()} votes</span>
+            ${$('var(--dim)')}${m.mpaa||''} · ${m.runtime_min||'?'}m</span>
+          </div>
+          <p style="font-size:.75rem;color:var(--muted);line-height:1.62;margin-bottom:.7rem;">${m.plot||''}</p>
+          ${$('var(--muted)')}DIR: <span style="color:var(--text);font-weight:700;">${m.director||'—'}</span></span>
+        </div>
+      </div>
+      <div style="margin-bottom:1.3rem;">
+        ${$('var(--accent)')}TOP CAST</span>
+        <div style="display:flex;gap:.9rem;flex-wrap:wrap;margin-top:.7rem;">
+          ${(m.cast||[]).map(c=>`
+            <div style="display:flex;flex-direction:column;align-items:center;gap:.3rem;min-width:66px;text-align:center;">
+              <img src="${c.headshot}" alt="${c.name}" style="width:50px;height:50px;border-radius:50%;
+                   object-fit:cover;border:1px solid rgba(192,0,26,.25);" onerror="this.style.background='rgba(192,0,26,.15)'"/>
+              <span style="font-size:.64rem;font-weight:700;">${c.name}</span>
+              ${$('var(--muted)')}${c.role}</span>
+            </div>`).join('')}
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:rgba(192,0,26,.22);">
+        ${[['IROB SCORE',`${m.irob_score||'—'}%`],['STATUS',m.status||'—'],['TRENDING',`#${m.trending_rank||'—'}`]].map(([l,v])=>`
+          <div style="background:var(--bg);padding:.9rem;text-align:center;">
+            <div style="font-family:'Bebas Neue',cursive;font-size:1.3rem;">${v}</div>
+            ${$('var(--muted)')}${l}</span>
+          </div>`).join('')}
+      </div>
+      <div style="margin-top:.8rem;">${$('var(--muted)')}STREAM ON: </span>
+        ${(m.streaming_on||[]).map(s=>`<span style="font-family:'JetBrains Mono',monospace;font-size:.55rem;
+          color:var(--accent);margin-left:.4rem;">${s}</span>`).join('')}
+      </div>`;
+  }
+
+  // ─── PHASE 2: News+ (Rotten Tomatoes / Variety replacement) ──────────
+  function renderPhase2() {
+    const db = typeof MOCK_DATABASE !== 'undefined' ? MOCK_DATABASE : {};
+    const movies = db.trending_movies || [];
+    return `
+      ${accentBar('IROB NEWS+', '500+ SOURCES · 60s REFRESH')}
+      ${movies.map(m=>`
+        <div style="border-bottom:1px solid rgba(255,255,255,.05);padding:.85rem 0;display:flex;gap:1rem;">
+          <img src="${m.backdrop}" style="width:88px;height:52px;object-fit:cover;flex-shrink:0;
+               border:1px solid rgba(192,0,26,.15);" onerror="this.style.background='rgba(192,0,26,.1)'"/>
+          <div style="flex:1;">
+            ${$('var(--accent)')}REVIEW ROUNDUP</span>
+            <div style="font-weight:700;font-size:.82rem;margin:.25rem 0 .4rem;">"${m.title}" — Critical vs Audience Split</div>
+            <div style="display:flex;gap:1.1rem;align-items:center;">
+              <div style="text-align:center;">
+                <div style="font-family:'Bebas Neue',cursive;font-size:1.1rem;color:#4ade80;">${m.irob_score}%</div>
+                ${$('var(--muted)')}CRITICS</span>
+              </div>
+              <div style="text-align:center;">
+                <div style="font-family:'Bebas Neue',cursive;font-size:1.1rem;color:#fbbf24;">${Math.min(m.irob_score+7,100)}%</div>
+                ${$('var(--muted)')}AUDIENCE</span>
+              </div>
+              ${$('var(--dim)',';align-self:center;')}${m.votes.toLocaleString()} ratings</span>
+            </div>
+          </div>
+        </div>`).join('')}
+      <div style="margin-top:.9rem;padding:.8rem;background:rgba(255,255,255,.02);
+                  border:1px solid rgba(255,255,255,.05);">
+        ${$('var(--accent)')}BREAKING · BOX OFFICE LIVE</span>
+        <div style="margin-top:.5rem;">
+          ${movies.map((m,i)=>`
+            <div style="font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--muted);
+                 display:flex;justify-content:space-between;padding:.28rem 0;
+                 border-bottom:1px solid rgba(255,255,255,.04);">
+              <span>${i+1}. ${m.title}</span>
+              <span style="color:var(--text);">$${(22+i*15+Math.round(m.rating*2)).toFixed(1)}M WKD</span>
+            </div>`).join('')}
+        </div>
+      </div>`;
+  }
+
+  // ─── PHASE 3: Discussion Forums (Reddit replacement) ─────────────────
+  function renderPhase3() {
+    const db = typeof MOCK_DATABASE !== 'undefined' ? MOCK_DATABASE : {};
+    const threads = db.live_forum_threads || [];
+    return `
+      ${accentBar('IROB FORUMS', `LIVE · ${threads.filter(t=>t.is_live).length} ACTIVE THREADS`)}
+      ${threads.map(t=>`
+        <div style="border:1px solid rgba(255,255,255,.06);background:rgba(255,255,255,.014);
+                    padding:.95rem 1.1rem;margin-bottom:.75rem;position:relative;">
+          ${t.is_live ? `<span style="position:absolute;top:.7rem;right:.8rem;font-family:'JetBrains Mono',
+            monospace;font-size:.48rem;color:#4ade80;letter-spacing:.18em;">● LIVE</span>` : ''}
+          <div style="display:flex;gap:.45rem;align-items:center;flex-wrap:wrap;margin-bottom:.5rem;">
+            ${$('var(--accent)')}${t.board}</span>
+            <span style="font-family:'JetBrains Mono',monospace;font-size:.48rem;padding:.12rem .45rem;
+              border:1px solid rgba(192,0,26,.3);color:var(--accent);">${t.flair}</span>
+            ${t.awards.slice(0,3).map(a=>`<span style="font-family:'JetBrains Mono',monospace;
+              font-size:.46rem;padding:.1rem .38rem;border:1px solid rgba(255,255,255,.1);
+              color:var(--dim);">${a}</span>`).join('')}
+          </div>
+          <div style="font-weight:700;font-size:.84rem;line-height:1.45;margin-bottom:.45rem;">${t.title}</div>
+          <p style="font-size:.71rem;color:var(--muted);line-height:1.58;margin-bottom:.6rem;">
+            ${t.preview.substring(0,180)}…</p>
+          <div style="display:flex;gap:1.3rem;align-items:center;flex-wrap:wrap;">
+            ${$('var(--dim)')}▲ <span style="color:var(--text);font-weight:700;">${t.upvotes.toLocaleString()}</span></span>
+            ${$('var(--dim)')}💬 <span style="color:var(--text);font-weight:700;">${t.comment_count.toLocaleString()}</span></span>
+            ${$('var(--muted)')}by <span style="color:var(--text);">${t.author}</span>
+              · <span style="color:var(--accent);">${t.author_flair}</span></span>
+          </div>
+          <div style="margin-top:.7rem;padding:.65rem .8rem;background:rgba(255,255,255,.02);
+                      border-left:2px solid var(--accent);">
+            ${$('var(--accent)')}TOP COMMENT · ${t.top_comment.author} · ▲${t.top_comment.upvotes.toLocaleString()}</span>
+            <div style="font-size:.7rem;color:var(--muted);line-height:1.55;margin-top:.25rem;">
+              ${t.top_comment.body}</div>
+          </div>
+        </div>`).join('')}`;
+  }
+
+  // ─── PHASE 4: Community Servers (Discord replacement) ────────────────
+  function renderPhase4() {
+    const channels = ['# general','# spoilers','# fan-art','# soundtrack','🔊 watch-party','🔊 discussion'];
+    const msgs = [
+      { i:'P', u:'phantomwave_99',  r:'Verified Fan',     t:'2m ago',  m:'The ending of Neon Requiem completely broke me. Second watch hits different.' },
+      { i:'L', u:'lorekeeper_sol',  r:'Top Contributor',  t:'5m ago',  m:'Anyone notice the blue umbrella disappears in the final scene? See my breakdown thread.' },
+      { i:'K', u:'cinephile_kira',  r:'Member',           t:'8m ago',  m:'@lorekeeper_sol that thread is outstanding — my mind is completely wrecked.' },
+    ];
+    return `
+      ${accentBar('IROB COMMUNITY SERVERS', '99.99% UPTIME · <50ms LATENCY')}
+      <div style="display:flex;height:296px;border:1px solid rgba(255,255,255,.07);overflow:hidden;">
+        <!-- Server list -->
+        <div style="width:50px;background:rgba(0,0,0,.45);padding:.6rem .4rem;display:flex;
+                    flex-direction:column;gap:.45rem;align-items:center;
+                    border-right:1px solid rgba(255,255,255,.04);">
+          ${['🎬','📺','🎵','🎮','🔴'].map((ic,j)=>`
+            <div style="width:34px;height:34px;background:${j===0?'rgba(192,0,26,.25)':'rgba(255,255,255,.04)'};
+                        border:1px solid ${j===0?'rgba(192,0,26,.4)':'rgba(255,255,255,.07)'};
+                        display:flex;align-items:center;justify-content:center;font-size:.9rem;cursor:pointer;">
+              ${ic}</div>`).join('')}
+        </div>
+        <!-- Channel list -->
+        <div style="width:152px;background:rgba(255,255,255,.012);padding:.7rem .5rem;
+                    border-right:1px solid rgba(255,255,255,.05);overflow-y:auto;">
+          ${$('var(--accent)',';letter-spacing:.2em;display:block;padding:.35rem .4rem;margin-bottom:.3rem;background:rgba(192,0,26,.07);')}📽 NEON REQUIEM</span>
+          ${channels.map((c,j)=>`<div style="font-family:'JetBrains Mono',monospace;font-size:.54rem;
+            color:${j===0?'var(--text)':'var(--muted)'};padding:.28rem .4rem;cursor:pointer;
+            ${j===0?'background:rgba(255,255,255,.04);':''}border-radius:2px;">${c}</div>`).join('')}
+          ${$('var(--accent)',';letter-spacing:.2em;display:block;padding:.35rem .4rem;margin:.6rem 0 .3rem;background:rgba(192,0,26,.07);')}🌊 PALE DOMINION</span>
+          ${['# lore','# theories','🔊 live-ama'].map(c=>`<div style="font-family:'JetBrains Mono',
+            monospace;font-size:.54rem;color:var(--muted);padding:.28rem .4rem;">${c}</div>`).join('')}
+        </div>
+        <!-- Chat pane -->
+        <div style="flex:1;display:flex;flex-direction:column;min-width:0;">
+          <div style="padding:.6rem .9rem;border-bottom:1px solid rgba(255,255,255,.05);
+                      font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--muted);">
+            # general &nbsp;·&nbsp; 2,847 members online</div>
+          <div style="flex:1;padding:.7rem .9rem;overflow-y:auto;display:flex;flex-direction:column;gap:.65rem;">
+            ${msgs.map(msg=>`
+              <div style="display:flex;gap:.6rem;">
+                <div style="width:28px;height:28px;background:rgba(192,0,26,.22);border-radius:50%;
+                            flex-shrink:0;display:flex;align-items:center;justify-content:center;
+                            font-weight:700;font-size:.7rem;">${msg.i}</div>
+                <div>
+                  <div style="font-family:'JetBrains Mono',monospace;font-size:.52rem;margin-bottom:.18rem;">
+                    <span style="color:var(--text);font-weight:700;">${msg.u}</span>
+                    <span style="color:var(--accent);margin-left:.35rem;">${msg.r}</span>
+                    <span style="color:var(--dim);margin-left:.4rem;">${msg.t}</span>
+                  </div>
+                  <div style="font-size:.7rem;color:var(--muted);line-height:1.5;">${msg.m}</div>
+                </div>
+              </div>`).join('')}
+          </div>
+          <div style="padding:.45rem .7rem;border-top:1px solid rgba(255,255,255,.05);">
+            <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);
+                        padding:.45rem .75rem;font-family:'JetBrains Mono',monospace;
+                        font-size:.52rem;color:var(--dim);">Message # general…</div>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  // ─── PHASE 5: Wiki+ (Fandom replacement) ─────────────────────────────
+  function renderPhase5() {
+    const terms = ['Det. Mira Yun','Victor Halloway','The Architect','Memory Banks','The Pale Exchange','Mnemonic Law'];
+    const stats = [['Articles','4,821'],['Active Editors','183'],['Edits Today','1,204'],['Images','12,840']];
+    return `
+      ${accentBar('IROB WIKI+', '50K+ WIKIS · AD-FREE')}
+      <div style="display:flex;gap:1.2rem;">
+        <div style="flex:1;min-width:0;">
+          <h4 style="font-family:'Bebas Neue',cursive;font-size:1.45rem;letter-spacing:.05em;
+                     border-bottom:1px solid rgba(192,0,26,.28);padding-bottom:.45rem;margin-bottom:.75rem;">
+            Neon Requiem Wiki</h4>
+          ${$('var(--accent)',';display:block;margin-bottom:.4rem;')}FEATURED ARTICLE</span>
+          <div style="font-weight:700;font-size:.88rem;margin-bottom:.35rem;">The Memory Black Market</div>
+          <p style="font-size:.72rem;color:var(--muted);line-height:1.63;margin-bottom:.75rem;">
+            The Memory Black Market (MBM) is the primary criminal ecosystem of the Neon Requiem universe.
+            Founded in the mid-2040s following deregulation of the Mnemonic Transfer Act, the MBM operates
+            across seven sectors of the city's underground infrastructure…</p>
+          <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:.35rem;margin-bottom:.75rem;">
+            ${terms.map(t=>`
+              <div style="font-family:'JetBrains Mono',monospace;font-size:.56rem;color:var(--muted);
+                          padding:.32rem .55rem;border:1px solid rgba(255,255,255,.05);
+                          background:rgba(255,255,255,.012);cursor:pointer;
+                          transition:border-color .2s;"
+                   onmouseover="this.style.borderColor='rgba(192,0,26,.3)'"
+                   onmouseout="this.style.borderColor='rgba(255,255,255,.05)'">
+                &rsaquo; ${t}</div>`).join('')}
+          </div>
+          ${$('var(--dim)',';font-size:.51rem;')}Last edited by
+            <span style="color:var(--text);">lorekeeper_sol</span> · 14 min ago ·
+            <span style="color:var(--accent);">2,347 revisions</span></span>
+        </div>
+        <div style="width:152px;flex-shrink:0;">
+          ${$('var(--accent)',';display:block;margin-bottom:.5rem;')}WIKI STATS</span>
+          ${stats.map(([l,v])=>`
+            <div style="padding:.45rem 0;border-bottom:1px solid rgba(255,255,255,.04);">
+              <div style="font-family:'Bebas Neue',cursive;font-size:1.05rem;">${v}</div>
+              ${$('var(--muted)')}${l}</span>
+            </div>`).join('')}
+        </div>
+      </div>`;
+  }
+
+  // ─── PHASE 6: Fanfiction (AO3 replacement) ───────────────────────────
+  function renderPhase6() {
+    const db = typeof MOCK_DATABASE !== 'undefined' ? MOCK_DATABASE : {};
+    const fics = db.fanfiction_entries || [];
+    return `
+      ${accentBar('IROB FANFICTION', '200+ TAG CATEGORIES')}
+      ${fics.map(f=>`
+        <div style="display:flex;gap:.95rem;padding:.85rem 0;border-bottom:1px solid rgba(255,255,255,.05);">
+          <img src="${f.cover}" alt="cover" style="width:56px;height:74px;object-fit:cover;flex-shrink:0;
+               border:1px solid rgba(192,0,26,.16);" onerror="this.style.background='rgba(192,0,26,.1)'"/>
+          <div style="flex:1;min-width:0;">
+            <div style="display:flex;gap:.42rem;align-items:center;flex-wrap:wrap;margin-bottom:.28rem;">
+              ${$('var(--accent)')}${f.fandom}</span>
+              <span style="font-family:'JetBrains Mono',monospace;font-size:.45rem;padding:.1rem .38rem;
+                border:1px solid rgba(192,0,26,.25);color:var(--accent);">${f.rating.toUpperCase()}</span>
+              <span style="font-family:'JetBrains Mono',monospace;font-size:.45rem;
+                color:${f.complete?'#4ade80':'#fbbf24'};">
+                ${f.complete ? '✓ COMPLETE' : '● IN PROGRESS'}</span>
+            </div>
+            <div style="font-weight:700;font-size:.84rem;margin-bottom:.2rem;">${f.title}</div>
+            ${$('var(--muted)')}by <span style="color:var(--text);">${f.author}</span>
+              · <span style="color:var(--accent);">${f.author_badge}</span></span>
+            <p style="font-size:.69rem;color:var(--muted);line-height:1.54;margin:.35rem 0 .45rem;">
+              ${f.summary.substring(0,138)}…</p>
+            <div style="display:flex;gap:.9rem;font-family:'JetBrains Mono',monospace;font-size:.51rem;color:var(--dim);">
+              <span>♥ ${f.kudos.toLocaleString()}</span>
+              <span>🔖 ${f.bookmarks.toLocaleString()}</span>
+              <span>💬 ${f.comments.toLocaleString()}</span>
+              <span>${(f.word_count/1000).toFixed(0)}k words · ${f.chapter_count} ch</span>
+            </div>
+          </div>
+        </div>`).join('')}`;
+  }
+
+  // ─── PHASE 7: Voice & Video ───────────────────────────────────────────
+  function renderPhase7() {
+    const db = typeof MOCK_DATABASE !== 'undefined' ? MOCK_DATABASE : {};
+    const m  = (db.trending_movies || [])[0] || {};
+    const participants = [
+      { i:'P', u:'phantomwave', s:'TALKING' },
+      { i:'L', u:'lorekeeper',  s:'MUTED'   },
+      { i:'K', u:'kira_c',      s:'ACTIVE'  },
+      { i:'V', u:'velvet_q',    s:'ACTIVE'  },
+    ];
+    return `
+      ${accentBar('IROB VOICE & VIDEO', 'WebRTC · <30ms · 10K ROOMS')}
+      <div style="background:#000;border:1px solid rgba(255,255,255,.08);height:150px;
+                  position:relative;margin-bottom:.9rem;overflow:hidden;">
+        <img src="${m.backdrop||''}" style="width:100%;height:100%;object-fit:cover;opacity:.45;"
+             onerror="this.style.background='rgba(192,0,26,.08)'"/>
+        <div style="position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.85),transparent)"></div>
+        <div style="position:absolute;top:.7rem;left:.8rem;background:rgba(192,0,26,.9);
+                    font-family:'JetBrains Mono',monospace;font-size:.48rem;padding:.18rem .55rem;
+                    color:#fff;letter-spacing:.14em;">WATCH PARTY · LIVE</div>
+        <div style="position:absolute;bottom:.75rem;left:.9rem;font-family:'JetBrains Mono',
+                    monospace;font-size:.56rem;color:#fff;">▶ ${m.title||'Neon Requiem'} · 01:14:22</div>
+        <div style="position:absolute;bottom:.75rem;right:.9rem;font-family:'JetBrains Mono',
+                    monospace;font-size:.52rem;color:var(--accent);">● 842 WATCHING</div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.45rem;margin-bottom:.9rem;">
+        ${participants.map(p=>`
+          <div style="text-align:center;padding:.65rem .4rem;
+                      border:1px solid ${p.s==='TALKING'?'var(--accent)':'rgba(255,255,255,.06)'};
+                      background:rgba(255,255,255,.014);
+                      ${p.s==='TALKING'?'box-shadow:0 0 12px rgba(192,0,26,.2);':''}">
+            <div style="width:34px;height:34px;background:rgba(192,0,26,.2);border-radius:50%;
+                        margin:0 auto .35rem;display:flex;align-items:center;justify-content:center;
+                        font-weight:700;font-size:.78rem;">${p.i}</div>
+            ${$('var(--text)',';display:block;margin-bottom:.18rem;font-size:.52rem;')}${p.u}</span>
+            ${$(`${p.s==='TALKING'?'var(--accent)':p.s==='MUTED'?'var(--dim)':'#4ade80'}`,';font-size:.44rem;')}${p.s}</span>
+          </div>`).join('')}
+      </div>
+      <div style="padding:.65rem;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.05);">
+        ${$('var(--accent)',';display:block;margin-bottom:.4rem;')}LIVE REACTIONS STREAM</span>
+        <div style="font-size:1.05rem;letter-spacing:.18em;">🔥❤️😱🎉🤯🔥❤️😱</div>
+      </div>`;
+  }
+
+  // ─── PHASE 8: AI Layer ────────────────────────────────────────────────
+  function renderPhase8() {
+    const db = typeof MOCK_DATABASE !== 'undefined' ? MOCK_DATABASE : {};
+    const modules = [
+      ['SPOILER DETECTION',    'Active across all 12M+ media entries — real-time'],
+      ['FANFIC AUTO-TAGGER',   '84K+ works tagged this week with 98.2% accuracy'],
+      ['TREND ANALYSIS',       'Processing 2.4M sentiment signals / hour'],
+      ['CONTENT MODERATION',   '24/7 AI coverage across 50K+ community servers'],
+    ];
+    return `
+      ${accentBar('IROB AI LAYER', '50M+ DAILY INFERENCES · <200ms')}
+      <div style="padding:.8rem .95rem;border:1px solid rgba(192,0,26,.22);
+                  background:rgba(192,0,26,.04);margin-bottom:1rem;">
+        ${$('var(--accent)',';display:block;margin-bottom:.6rem;')}IROB ASSISTANT — LIVE SESSION</span>
+        <div style="display:flex;flex-direction:column;gap:.55rem;">
+          <div style="display:flex;justify-content:flex-end;">
+            <div style="background:rgba(192,0,26,.15);border:1px solid rgba(192,0,26,.28);
+                        padding:.42rem .75rem;max-width:76%;font-size:.7rem;
+                        color:var(--text);line-height:1.52;">
+              Recommend something like Neon Requiem but shorter</div>
+          </div>
+          <div style="display:flex;gap:.6rem;">
+            <div style="width:24px;height:24px;background:var(--accent);border-radius:50%;flex-shrink:0;
+                        display:flex;align-items:center;justify-content:center;
+                        font-family:'JetBrains Mono',monospace;font-size:.48rem;font-weight:700;">AI</div>
+            <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);
+                        padding:.42rem .75rem;max-width:82%;font-size:.7rem;
+                        color:var(--muted);line-height:1.58;">
+              Based on your watch history:
+              <span style="color:var(--text);">Blade Runner 2049</span> (try the 2hr cut),
+              <span style="color:var(--text);">Devs</span> (TV · 8 episodes),
+              <span style="color:var(--text);">Coherence</span> (89m · <span style="color:#4ade80;">97% match</span>).
+              Want spoiler-free summaries?</div>
+          </div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:.55rem;margin-bottom:.9rem;">
+        ${modules.map(([t,d])=>`
+          <div style="padding:.65rem;border:1px solid rgba(255,255,255,.06);background:rgba(255,255,255,.014);">
+            ${$('var(--accent)',';display:block;margin-bottom:.28rem;')}${t}</span>
+            <div style="font-size:.66rem;color:var(--muted);">${d}</div>
+          </div>`).join('')}
+      </div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:.51rem;padding:.55rem .75rem;
+                  border:1px solid rgba(192,0,26,.2);display:flex;justify-content:space-between;
+                  flex-wrap:wrap;gap:.5rem;color:var(--muted);">
+        <span>MODEL: <span style="color:var(--text);">GPT-4o + Custom Fine-tune</span></span>
+        <span>INFERENCE: <span style="color:#4ade80;">&lt;200ms P99</span></span>
+        <span>DAILY CALLS: <span style="color:var(--accent);">50M+</span></span>
+      </div>`;
+  }
+
+  // ─── Modal open / close ───────────────────────────────────────────────
+  const RENDERERS = { 1:renderPhase1, 2:renderPhase2, 3:renderPhase3, 4:renderPhase4,
+                      5:renderPhase5, 6:renderPhase6, 7:renderPhase7, 8:renderPhase8 };
+
+  function openModal(id) {
+    const ph = typeof PHASES !== 'undefined' ? PHASES.find(p => p.id === id) : null;
+    if (!ph) return;
+
+    document.getElementById('m-code').textContent  = `${ph.code} — ${ph.timeline}`;
+    document.getElementById('m-title').textContent = ph.title;
+
+    const render = RENDERERS[id];
+    if (render) {
+      document.getElementById('m-body').innerHTML = render();
+    } else {
+      const kpiHTML = ph.kpis ? `
+        <div class="mrow">
+          <div class="mlabel">Key Metrics</div>
+          <div class="m-kpi-grid">
+            ${Object.entries(ph.kpis).map(([k,v])=>
+              `<div class="m-kpi"><span class="m-kpi-val">${v}</span><span class="m-kpi-lbl">${k}</span></div>`
+            ).join('')}
+          </div>
+        </div>` : '';
+      document.getElementById('m-body').innerHTML = `
+        <div class="mrow"><div class="mlabel">Replaces</div><div class="mval">${ph.replaces}</div></div>
+        <div class="mrow"><div class="mlabel">Phase Overview</div><p class="mpara">${ph.description}</p></div>
+        <div class="mrow">
+          <div class="mlabel">Full Feature Set</div>
+          <div class="m-features-grid">${ph.features.map(f=>`<div class="m-feat">${f}</div>`).join('')}</div>
+        </div>${kpiHTML}`;
+    }
+    document.getElementById('ui-modal').classList.add('open');
+  }
+
+  function closeModal() { document.getElementById('ui-modal').classList.remove('open'); }
+
+  const mClose = document.getElementById('m-close');
+  const modal  = document.getElementById('ui-modal');
+  if (mClose) mClose.addEventListener('click', closeModal);
+  if (modal)  modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+  // Expose for any inline onclick attributes that may exist
+  window.openModal  = openModal;
+  window.closeModal = closeModal;
+
+
+  /* ═══════════════════════════════════════════════════════════════════
+     12.  HERO GSAP ENTRANCE — fires after loader (3s offset)
+  ═══════════════════════════════════════════════════════════════════ */
+  const heroTL = gsap.timeline({ delay: 3.05 });
+  heroTL
+    .fromTo('.hero-badge', { opacity:0, y:-18 }, { opacity:1, y:0, duration:.7 })
+    .fromTo('.hero-title',  { opacity:0, y:45  }, { opacity:1, y:0, duration:1,  ease:'power3.out' }, .2)
+    .fromTo('.hero-sub',    { opacity:0        }, { opacity:1, duration:.8 }, .8)
+    .fromTo('.stats-grid',  { opacity:0, y:28  }, { opacity:1, y:0, duration:.8, ease:'power2.out' }, 1.0)
+    .fromTo('.scroll-cue',  { opacity:0        }, { opacity:1, duration:.9 }, 1.8);
+
+  // Eyebrows, titles, dividers on scroll
+  gsap.utils.toArray('.eyebrow, .sec-title, .divider').forEach(el => {
+    gsap.fromTo(el, { opacity:0, y:22 },
+      { opacity:1, y:0, duration:.75, scrollTrigger: { trigger:el, start:'top 84%' } });
+  });
+
+
+  /* ═══════════════════════════════════════════════════════════════════
+     13.  INIT — build all dynamic sections
+  ═══════════════════════════════════════════════════════════════════ */
+  buildTimeline();
+  buildTechGrid();
+  buildComparisonTable();
+  buildRevenueGrid();
+
+}); // end DOMContentLoaded
+
+  </script>
+</body>
+</html>
