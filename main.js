@@ -87,6 +87,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
   /* ═══════════════════════════════════════════════════════════════════
      3.  THREE.JS BACKGROUND — mouse-reactive particle network
+     ─────────────────────────────────────────────────────────────────
+     PERFORMANCE CHANGES (all in this block):
+     ① mousemove listener only stores two numbers — zero math, zero
+       DOM access.  { passive: true } tells the browser it can scroll
+       without waiting for the handler to return (eliminates jank).
+     ② ALL camera-angle math lives inside the RAF tick().  No matter
+       how many mousemove events fire between frames (could be 60+),
+       the lerp runs exactly once — when the browser is ready to paint.
+     ③ Edge culling switched from Math.sqrt to squared-distance
+       comparison.  Saves ~12,720 sqrt() calls per rebuild pass.
+     ④ Edge rebuild every 3rd frame instead of every 2nd — the
+       60fps visual is indistinguishable but the O(N²) cost drops.
+     ⑤ Outer-loop coords hoisted out of the inner-loop to avoid
+       repeated typed-array reads (outer particle accessed once).
   ═══════════════════════════════════════════════════════════════════ */
   (function initGL() {
     const canvas = document.getElementById('bg-canvas');
@@ -99,13 +113,19 @@ document.addEventListener('DOMContentLoaded', () => {
     renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
     camera.position.z = 48;
 
-    // ── Mouse tracking ──
-    const mouse  = { x: 0, y: 0 };
-    const camDst = { x: 0, y: 0 };
+    // ── ① Mouse tracking — write-only in the event, read-only in RAF ──
+    // rawMouseX/Y : written by the event listener (2 assignments, nothing else).
+    // camDstX/Y   : lerp accumulators, updated ONCE per RAF frame in tick().
+    // This is the "RAF gate": even if 120 mousemove events fire between two
+    // animation frames, the camera angle is recalculated exactly ONCE —
+    // the moment the GPU is ready to draw the next frame.
+    let rawMouseX = 0, rawMouseY = 0;
+    let camDstX   = 0, camDstY   = 0;
     window.addEventListener('mousemove', e => {
-      mouse.x =  (e.clientX / innerWidth  - 0.5) * 2;
-      mouse.y = -(e.clientY / innerHeight - 0.5) * 2;
-    });
+      // Only two cheap assignments — no trig, no DOM reads, no style writes.
+      rawMouseX =  (e.clientX / innerWidth  - 0.5) * 2;
+      rawMouseY = -(e.clientY / innerHeight - 0.5) * 2;
+    }, { passive: true }); // passive: true removes the scroll-blocking penalty
 
     // ── Main particle field (160 dots) ──
     const N   = 160;
@@ -158,18 +178,22 @@ document.addEventListener('DOMContentLoaded', () => {
     ring2.rotation.y =  Math.PI / 4;
     scene.add(ring2);
 
-    const THRESH = 14;
+    const THRESH    = 14;
+    const THRESH_SQ = THRESH * THRESH; // ③ pre-computed — no sqrt in the inner loop
     let   frame  = 0;
 
     function tick() {
       requestAnimationFrame(tick);
       frame++;
 
-      // Lerp camera toward mouse (parallax)
-      camDst.x += (mouse.x * 3.8 - camDst.x) * 0.04;
-      camDst.y += (mouse.y * 2.4 - camDst.y) * 0.04;
-      camera.position.x = Math.sin(frame * 0.0024) * 2.4 + camDst.x;
-      camera.position.y = Math.cos(frame * 0.0017) * 1.7 + camDst.y;
+      // ── ② RAF gate: mouse → camera.
+      // This is the ONLY place camDstX/Y are touched.  It runs exactly once
+      // per frame regardless of how many mousemove events fired since the
+      // last paint — zero wasted work between frames.
+      camDstX += (rawMouseX * 3.8 - camDstX) * 0.04;
+      camDstY += (rawMouseY * 2.4 - camDstY) * 0.04;
+      camera.position.x = Math.sin(frame * 0.0024) * 2.4 + camDstX;
+      camera.position.y = Math.cos(frame * 0.0017) * 1.7 + camDstY;
       camera.lookAt(0, 0, 0);
 
       // Rotate rings
@@ -188,20 +212,28 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       pGeo.attributes.position.needsUpdate = true;
 
-      // Rebuild edges every 2nd frame
-      if (frame % 2 === 0) {
+      // ── ③④⑤ Rebuild edges: every 3rd frame, sqrt-free, hoisted outer reads
+      // BEFORE: Math.sqrt(dx*dx+dy*dy) < 14  →  12,720 sqrt calls per pass
+      // AFTER:  dx*dx + dy*dy < 196           →  0 sqrt calls
+      // Outer coords (ix,iy,iz) read once and reused across the inner loop.
+      if (frame % 3 === 0) {
         let seg = 0;
-        for (let i = 0; i < N && seg < MAX_SEG-1; i++) {
-          for (let j = i+1; j < N && seg < MAX_SEG-1; j++) {
-            const dx = pos[i*3]-pos[j*3], dy = pos[i*3+1]-pos[j*3+1];
-            if (Math.sqrt(dx*dx+dy*dy) < THRESH) {
-              lPos[seg*6]   = pos[i*3];   lPos[seg*6+1] = pos[i*3+1]; lPos[seg*6+2] = pos[i*3+2];
-              lPos[seg*6+3] = pos[j*3];   lPos[seg*6+4] = pos[j*3+1]; lPos[seg*6+5] = pos[j*3+2];
+        for (let i = 0; i < N && seg < MAX_SEG - 1; i++) {
+          const ix = pos[i*3];
+          const iy = pos[i*3 + 1];
+          const iz = pos[i*3 + 2];
+          for (let j = i + 1; j < N && seg < MAX_SEG - 1; j++) {
+            const dx = ix - pos[j*3];
+            const dy = iy - pos[j*3 + 1];
+            if (dx*dx + dy*dy < THRESH_SQ) {
+              const b = seg * 6;
+              lPos[b]   = ix;          lPos[b+1] = iy;          lPos[b+2] = iz;
+              lPos[b+3] = pos[j*3];   lPos[b+4] = pos[j*3+1];  lPos[b+5] = pos[j*3+2];
               seg++;
             }
           }
         }
-        lGeo.setDrawRange(0, seg*2);
+        lGeo.setDrawRange(0, seg * 2);
         lGeo.attributes.position.needsUpdate = true;
       }
       renderer.render(scene, camera);
@@ -225,18 +257,33 @@ document.addEventListener('DOMContentLoaded', () => {
 
   /* ═══════════════════════════════════════════════════════════════════
      5.  CUSTOM CURSOR
+     ─────────────────────────────────────────────────────────────────
+     PERFORMANCE CHANGE: the ring follower used setTimeout(fn, 90)
+     inside the raw mousemove event — queues macrotasks 60+ times per
+     second outside the RAF budget.  Replaced with a single RAF loop
+     that lerps the ring toward the dot: zero timer overhead, silky lag.
   ═══════════════════════════════════════════════════════════════════ */
   const $cur  = document.getElementById('cursor');
   const $ring = document.getElementById('cursor-ring');
   if ($cur && $ring) {
+    let dotX = 0, dotY = 0;   // raw pointer — written in event, read in RAF
+    let ringX = 0, ringY = 0; // lerped ring position, applied in RAF
+
     document.addEventListener('mousemove', e => {
-      $cur.style.left = e.clientX + 'px';
-      $cur.style.top  = e.clientY + 'px';
-      setTimeout(() => {
-        $ring.style.left = e.clientX + 'px';
-        $ring.style.top  = e.clientY + 'px';
-      }, 90);
-    });
+      dotX = e.clientX;
+      dotY = e.clientY;
+    }, { passive: true });
+
+    // One shared RAF loop drives both elements — zero setTimeout overhead
+    (function cursorLoop() {
+      requestAnimationFrame(cursorLoop);
+      $cur.style.left  = dotX + 'px';
+      $cur.style.top   = dotY + 'px';
+      ringX += (dotX - ringX) * 0.14;
+      ringY += (dotY - ringY) * 0.14;
+      $ring.style.left = ringX + 'px';
+      $ring.style.top  = ringY + 'px';
+    })();
     function bindCursor(sel) {
       document.querySelectorAll(sel).forEach(el => {
         el.addEventListener('mouseenter', () => {
@@ -339,6 +386,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   /* ═══════════════════════════════════════════════════════════════════
      8.  BUILD TECH GRID + 3D TILT
+     ─────────────────────────────────────────────────────────────────
+     PERFORMANCE CHANGE: getBoundingClientRect() was called on every raw
+     mousemove event, forcing a layout reflow each time.  Now the rect
+     is cached once on mouseenter; only cheap math runs inside the RAF
+     loop — one pending RAF per card, never stacking calls.
   ═══════════════════════════════════════════════════════════════════ */
   const TECHS = [
     { icon:'⚛',  name:'React',         cat:'Frontend' },
@@ -379,20 +431,38 @@ document.addEventListener('DOMContentLoaded', () => {
         scrollTrigger: { trigger:'#tech-stack', start:'top 72%' } }
     );
 
-    // 3D Tilt — per-card mouse tracking
+    // 3D Tilt — RAF-gated; getBoundingClientRect cached on mouseenter (safe),
+    // only cheap math runs per RAF frame — never stacks more than 1 pending call.
     document.querySelectorAll('.tech-cell').forEach(card => {
-      card.addEventListener('mousemove', e => {
-        const r   = card.getBoundingClientRect();
-        const rx  =  ((e.clientY - r.top  - r.height/2) / (r.height/2)) * 15;
-        const ry  = -((e.clientX - r.left - r.width /2) / (r.width /2)) * 15;
-        const px  = ((e.clientX - r.left) / r.width  * 100).toFixed(1) + '%';
-        const py  = ((e.clientY - r.top ) / r.height * 100).toFixed(1) + '%';
-        card.style.transform = `perspective(540px) rotateX(${rx}deg) rotateY(${ry}deg) scale(1.07)`;
-        card.style.boxShadow = `0 0 26px rgba(192,0,26,.20), 0 ${10+Math.abs(rx*.4)}px 30px rgba(0,0,0,.45)`;
-        card.style.setProperty('--mx', px);
-        card.style.setProperty('--my', py);
+      let rect    = null;  // cached bounding box
+      let tiltRaf = null;  // pending RAF handle
+      let mx = 0, my = 0; // raw pointer coords
+
+      card.addEventListener('mouseenter', () => {
+        rect = card.getBoundingClientRect(); // one layout read — safe here
       });
+
+      card.addEventListener('mousemove', e => {
+        mx = e.clientX;
+        my = e.clientY;
+        if (tiltRaf !== null) return; // gate: one RAF pending at most
+        tiltRaf = requestAnimationFrame(() => {
+          tiltRaf = null;
+          if (!rect) return;
+          const rx  =  ((my - rect.top  - rect.height / 2) / (rect.height / 2)) * 15;
+          const ry  = -((mx - rect.left - rect.width  / 2) / (rect.width  / 2)) * 15;
+          const px  = ((mx - rect.left) / rect.width  * 100).toFixed(1) + '%';
+          const py  = ((my - rect.top ) / rect.height * 100).toFixed(1) + '%';
+          card.style.transform = `perspective(540px) rotateX(${rx}deg) rotateY(${ry}deg) scale(1.07)`;
+          card.style.boxShadow = `0 0 26px rgba(192,0,26,.20), 0 ${10 + Math.abs(rx * 0.4)}px 30px rgba(0,0,0,.45)`;
+          card.style.setProperty('--mx', px);
+          card.style.setProperty('--my', py);
+        });
+      }, { passive: true });
+
       card.addEventListener('mouseleave', () => {
+        rect = null;
+        if (tiltRaf !== null) { cancelAnimationFrame(tiltRaf); tiltRaf = null; }
         card.style.transform = '';
         card.style.boxShadow = '';
       });
